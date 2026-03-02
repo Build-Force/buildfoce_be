@@ -1,0 +1,4 @@
+src/middlewares/errorHandler.ts(3,40): error TS6133: 'req' is declared but its value is never read.
+src/middlewares/errorHandler.ts(3,69): error TS6133: 'next' is declared but its value is never read.
+src/middlewares/errorHandler.ts(15,55): error TS6133: 'next' is declared but its value is never read.
+src/routes/index.ts(6,22): error TS6133: 'req' is declared but its value is never read.
