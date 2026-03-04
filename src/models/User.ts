@@ -23,6 +23,12 @@ export interface IUser extends Document {
     companyName?: string;
     taxCode?: string;
 
+    // Added from Survey
+    skills?: string[];
+    experienceYears?: string;
+    preferredLocationCity?: string;
+    expectedSalary?: string;
+
     createdAt: Date;
     updatedAt: Date;
 
@@ -106,6 +112,19 @@ const userSchema = new Schema<IUser>({
     taxCode: {
         type: String,
         trim: true,
+    },
+    // Survey details
+    skills: [{
+        type: String
+    }],
+    experienceYears: {
+        type: String,
+    },
+    preferredLocationCity: {
+        type: String,
+    },
+    expectedSalary: {
+        type: String,
     },
 }, {
     timestamps: true,
