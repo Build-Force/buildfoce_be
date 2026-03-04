@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { RoleType, USER_ROLES } from '../constants/roles';
 
 export interface IUser extends Document {
+    username?: string;
     email?: string;
     phone?: string;
     password?: string;
@@ -29,6 +30,13 @@ export interface IUser extends Document {
 }
 
 const userSchema = new Schema<IUser>({
+    username: {
+        type: String,
+        sparse: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
+    },
     email: {
         type: String,
         sparse: true,
@@ -105,8 +113,8 @@ const userSchema = new Schema<IUser>({
 
 // Require at least an email or phone for logging in/registration
 userSchema.pre('validate', function (next) {
-    if (!this.email && !this.phone) {
-        next(new Error('At least an email or phone must be provided.'));
+    if (!this.email && !this.phone && !this.username) {
+        next(new Error('At least an email, phone, or username must be provided.'));
     } else {
         next();
     }

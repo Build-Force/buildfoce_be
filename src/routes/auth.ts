@@ -43,7 +43,7 @@ const loginValidation = [
 ];
 
 const forgotPasswordValidation = [
-    body('email').isEmail().normalizeEmail().withMessage('A valid email is required'),
+    body('identifier').notEmpty().withMessage('Username, Email or Phone is required'),
 ];
 
 const verifyResetOtpValidation = [

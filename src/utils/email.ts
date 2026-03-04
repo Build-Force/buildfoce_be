@@ -21,6 +21,8 @@ export const sendOTPEmail = async (to: string, otp: string) => {
       return { messageId: 'mock-id-local' };
     }
 
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY as string);
+
     const msg = {
       to,
       from: { email: FROM_EMAIL, name: FROM_NAME },
@@ -64,6 +66,8 @@ export const sendVerifyLinkEmail = async (to: string, link: string) => {
       console.log(`[MOCK EMAIL to ${to}]: Verify link is ${link}`);
       return { messageId: 'mock-id-local' };
     }
+
+    sgMail.setApiKey(process.env.SENDGRID_API_KEY as string);
 
     const msg = {
       to,
