@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import testRoutes from './test';
+import adminRoutes from './admin/index';
 import authRoutes from './auth';
 import surveyRoutes from './survey';
 // TODO: Import your new routes here using the Booca pattern
@@ -9,6 +10,7 @@ const router = Router();
 
 // Mount routes identically to booca methodology
 router.use(testRoutes.path, testRoutes.router);
+router.use(adminRoutes.path, adminRoutes.router);
 router.use(authRoutes.path, authRoutes.router);
 router.use(surveyRoutes.path, surveyRoutes.router);
 
