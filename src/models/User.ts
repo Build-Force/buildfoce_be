@@ -16,16 +16,27 @@ export interface IUser extends Document {
   isActive: boolean;
   status: UserStatus;
   avatar?: string;
+
+  // Employee fields
   cccdHash?: string;
   isCccdVerified?: boolean;
+
+  // HR fields
   companyName?: string;
   taxCode?: string;
+  packageTier?: string;
+  packageActiveUntil?: Date;
+
+  // Survey fields
   skills?: string[];
   experienceYears?: string;
   preferredLocationCity?: string;
   expectedSalary?: string;
+
   createdAt: Date;
   updatedAt: Date;
+
+  comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
 const ROLE_VALUES: UserRole[] = ['USER', 'HR', 'ADMIN'];
