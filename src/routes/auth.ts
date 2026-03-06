@@ -22,6 +22,15 @@ const router = Router();
 
 // Validation Rules
 const registerValidation = [
+    body('username')
+        .trim()
+        .notEmpty()
+        .withMessage('Username is required')
+        .isLength({ min: 3, max: 30 })
+        .withMessage('Username must be between 3 and 30 characters')
+        .matches(/^[a-zA-Z0-9_]+$/)
+        .withMessage('Username can only contain letters, numbers, and underscores')
+        .toLowerCase(),
     body('email').isEmail().normalizeEmail().withMessage('Invalid email address format'),
     body('password')
         .isLength({ min: 6 })
@@ -38,7 +47,7 @@ const registerValidation = [
 ];
 
 const loginValidation = [
-    body('identifier').trim().notEmpty().withMessage('Email or Phone is required to login'),
+    body('identifier').trim().notEmpty().withMessage('Username or Email is required to login'),
     body('password').notEmpty().withMessage('Password cannot be empty'),
 ];
 

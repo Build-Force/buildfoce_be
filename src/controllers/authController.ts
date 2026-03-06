@@ -19,6 +19,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     try {
         const { username, email, password, firstName, lastName, phone, role, companyName, taxCode } = req.body;
 
+        const normalizedUsername = typeof username === 'string' ? username.trim().toLowerCase() : '';
+        if (!normalizedUsername) {
+            res.status(400).json({ success: false, message: 'Username is required' });
+            return;
+        }
+
         // BuildForce requires email
         if (!email) {
             res.status(400).json({ success: false, message: 'Email is required' });
@@ -32,8 +38,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        if (username) {
-            const existingUsername = await User.findOne({ username });
+        {
+            const existingUsername = await User.findOne({ username: normalizedUsername });
             if (existingUsername) {
                 res.status(400).json({ success: false, message: 'Username already exists' });
                 return;
@@ -50,7 +56,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         }
 
         // Create a verification token with user data (expires in 24h)
-        const payload: any = { username, email, password, firstName, lastName, phone, role };
+        const payload: any = { username: normalizedUsername, email, password, firstName, lastName, phone, role };
         if (role === 'hr') {
             payload.companyName = companyName;
             payload.taxCode = taxCode;
@@ -111,6 +117,7 @@ export const verifyEmailByLink = async (req: Request, res: Response): Promise<vo
         }
 
         const { username, email, password, firstName, lastName, phone, role, companyName, taxCode } = decoded;
+        const normalizedUsername = username ? String(username).trim().toLowerCase() : undefined;
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -120,9 +127,17 @@ export const verifyEmailByLink = async (req: Request, res: Response): Promise<vo
             return;
         }
 
+        if (normalizedUsername) {
+            const existingUsername = await User.findOne({ username: normalizedUsername });
+            if (existingUsername) {
+                res.status(400).json({ success: false, message: 'Username already exists' });
+                return;
+            }
+        }
+
         // Save user with isVerified = true
         const user = new User({
-            username,
+            username: normalizedUsername,
             email,
             password,
             firstName,

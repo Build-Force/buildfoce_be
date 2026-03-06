@@ -2,16 +2,17 @@ import { Router } from 'express';
 import testRoutes from './test';
 import authRoutes from './auth';
 import surveyRoutes from './survey';
-// TODO: Import your new routes here using the Booca pattern
-// import aiSiteRoutes from './aiSite';
+import paymentRoutes from './payment';
+import sepayWebhookRoutes from './sepayWebhook';
+import jobRoutes from './jobs';
 
 const router = Router();
 
-// Mount routes identically to booca methodology
 router.use(testRoutes.path, testRoutes.router);
 router.use(authRoutes.path, authRoutes.router);
 router.use(surveyRoutes.path, surveyRoutes.router);
-
-// router.use(aiSiteRoutes.path, aiSiteRoutes.router);
+router.use(paymentRoutes.path, paymentRoutes.router);
+router.use(sepayWebhookRoutes.path, sepayWebhookRoutes.router);
+router.use(jobRoutes.path, jobRoutes.router);
 
 export default router;
