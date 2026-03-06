@@ -5,13 +5,26 @@ import { Job } from '../models/Job';
 import { JobApplication } from '../models/JobApplication';
 
 const getAuthUserId = (req: AuthRequest): string => {
-    return req.user?.userId || req.user?._id;
+    const rawId =
+        (req.user as any)?.userId ??
+        (req.user as any)?._id;
+
+    if (typeof rawId === 'string') {
+        return rawId;
+    }
+
+    return String(rawId);
 };
 
 export const applyToJob = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const workerId = getAuthUserId(req);
         const { jobId } = req.params as any;
+
+        if (!mongoose.Types.ObjectId.isValid(jobId)) {
+            res.status(400).json({ success: false, message: 'Invalid jobId.' });
+            return;
+        }
 
         const job = await Job.findById(jobId);
         if (!job) {
@@ -198,7 +211,7 @@ export const confirmComplete = async (req: AuthRequest, res: Response): Promise<
 
         const isWorker = application.workerId.toString() === userId;
         const isHr = application.hrId.toString() === userId;
-        const isAdmin = role === 'admin';
+        const isAdmin = role === 'ADMIN';
         if (!isWorker && !isHr && !isAdmin) {
             res.status(403).json({ success: false, message: 'Access denied.' });
             return;

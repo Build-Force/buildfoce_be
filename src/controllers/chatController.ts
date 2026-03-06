@@ -5,9 +5,21 @@ import { Conversation } from '../models/Conversation';
 import { Message } from '../models/Message';
 import { User } from '../models/User';
 
+const getAuthUserId = (req: AuthRequest): string => {
+    const rawId =
+        (req.user as any)?._id ??
+        (req.user as any)?.userId;
+
+    if (typeof rawId === 'string') {
+        return rawId;
+    }
+
+    return String(rawId);
+};
+
 export const getConversations = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = getAuthUserId(req);
 
         const conversations = await Conversation.find({ participants: userId })
             .populate('participants', 'firstName lastName avatar role companyName')
@@ -38,7 +50,7 @@ export const getConversations = async (req: AuthRequest, res: Response): Promise
 
 export const createOrGetConversation = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = getAuthUserId(req);
         const { participantId } = req.body;
 
         if (!participantId) {
@@ -79,7 +91,7 @@ export const createOrGetConversation = async (req: AuthRequest, res: Response): 
 
 export const getMessages = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = getAuthUserId(req);
         const { conversationId } = req.params;
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
@@ -124,7 +136,7 @@ export const getMessages = async (req: AuthRequest, res: Response): Promise<void
 
 export const sendMessage = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = getAuthUserId(req);
         const { conversationId } = req.params;
         const { content, type = 'text' } = req.body;
 
@@ -196,7 +208,7 @@ export const sendMessage = async (req: AuthRequest, res: Response): Promise<void
 
 export const markAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = getAuthUserId(req);
         const { conversationId } = req.params;
 
         const conversation = await Conversation.findOne({

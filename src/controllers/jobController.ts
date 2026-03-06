@@ -6,7 +6,15 @@ import { AuthRequest } from '../middlewares/auth';
 import { User } from '../models/User';
 
 const getAuthUserId = (req: AuthRequest): string => {
-    return req.user?.userId || req.user?._id;
+    const rawId =
+        (req.user as any)?.userId ??
+        (req.user as any)?._id;
+
+    if (typeof rawId === 'string') {
+        return rawId;
+    }
+
+    return String(rawId);
 };
 
 export const createJobDraft = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -98,6 +106,11 @@ export const listPublicJobs = async (_req: Request, res: Response): Promise<void
 export const getJobDetail = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { jobId } = req.params as any;
+        if (!mongoose.Types.ObjectId.isValid(jobId)) {
+            res.status(400).json({ success: false, message: 'Invalid jobId.' });
+            return;
+        }
+
         const job = await Job.findById(jobId)
             .populate('hrId', 'firstName lastName companyName avatar')
             .lean();
@@ -111,7 +124,7 @@ export const getJobDetail = async (req: AuthRequest, res: Response): Promise<voi
             const userId = getAuthUserId(req);
             const role = req.user?.role;
             const isOwner = userId && job.hrId?.toString?.() === userId;
-            const isAdmin = role === 'admin';
+            const isAdmin = role === 'ADMIN';
             if (!isOwner && !isAdmin) {
                 res.status(403).json({ success: false, message: 'Access denied.' });
                 return;
