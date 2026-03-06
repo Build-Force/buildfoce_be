@@ -21,6 +21,8 @@ export interface IUser extends Document {
     // Specific to HR
     companyName?: string;
     taxCode?: string;
+    packageTier?: string;
+    packageActiveUntil?: Date;
 
     // Added from Survey
     skills?: string[];
@@ -104,6 +106,13 @@ const userSchema = new Schema<IUser>({
     taxCode: {
         type: String,
         trim: true,
+    },
+    packageTier: {
+        type: String,
+        trim: true,
+    },
+    packageActiveUntil: {
+        type: Date,
     },
     // Survey details
     skills: [{

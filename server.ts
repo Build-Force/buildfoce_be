@@ -9,9 +9,14 @@ import { connectDatabase } from './src/config/database';
 import { env } from './src/config/env';
 import routes from './src/routes';
 import { errorHandler, notFound } from './src/middlewares/errorHandler';
+import { initializeSocket } from './src/socket';
 
 const app = express();
 const httpServer = createServer(app);
+
+// Socket.io
+const io = initializeSocket(httpServer);
+app.set('io', io);
 
 // Connect to database
 connectDatabase();
