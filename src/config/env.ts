@@ -24,6 +24,7 @@ interface EnvConfig {
     PAYOS_CLIENT_ID: string;
     PAYOS_API_KEY: string;
     PAYOS_CHECKSUM_KEY: string;
+    GEMINI_API_KEY: string;
 }
 
 const getEnvVar = (key: string, required: boolean = true): string => {
@@ -52,4 +53,5 @@ export const env: EnvConfig = {
     PAYOS_CLIENT_ID: getEnvVar("PAYOS_CLIENT_ID", false),
     PAYOS_API_KEY: getEnvVar("PAYOS_API_KEY", false),
     PAYOS_CHECKSUM_KEY: getEnvVar("PAYOS_CHECKSUM_KEY", false),
+    GEMINI_API_KEY: getEnvVar("GEMINI_API_KEY", true),
 };
