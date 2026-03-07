@@ -4,6 +4,7 @@ import { Transaction } from '../models/Transaction';
 import { UserPackage } from '../models/UserPackage';
 import { AuthRequest } from '../middlewares/auth';
 import { env } from '../config/env';
+import { getActiveUserPackage } from '../services/packageService';
 
 const PAYMENT_SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -62,14 +63,37 @@ const DEFAULT_PACKAGES = [
   },
 ];
 
+const syncDefaultPackages = async () => {
+  await ServicePackage.bulkWrite(
+    DEFAULT_PACKAGES.map((pkg) => ({
+      updateOne: {
+        filter: { slug: pkg.slug },
+        update: {
+          $set: {
+            name: pkg.name,
+            slug: pkg.slug,
+            description: pkg.description,
+            features: pkg.features,
+            price: pkg.price,
+            jobPostLimit: pkg.jobPostLimit,
+            durationDays: pkg.durationDays,
+            sortOrder: pkg.sortOrder,
+            hasAiMatching: pkg.hasAiMatching,
+            priorityLevel: pkg.priorityLevel,
+            maxHrAccounts: pkg.maxHrAccounts,
+            isActive: true,
+          },
+        },
+        upsert: true,
+      },
+    }))
+  );
+};
+
 export const getPackages = async (_req: Request, res: Response): Promise<void> => {
   try {
-    let packages = await ServicePackage.find({ isActive: true }).sort({ sortOrder: 1 });
-
-    if (!packages.length) {
-      await ServicePackage.insertMany(DEFAULT_PACKAGES);
-      packages = await ServicePackage.find({ isActive: true }).sort({ sortOrder: 1 });
-    }
+    await syncDefaultPackages();
+    const packages = await ServicePackage.find({ isActive: true }).sort({ sortOrder: 1 });
 
     res.json({ success: true, data: packages });
   } catch (err: any) {
@@ -80,13 +104,12 @@ export const getPackages = async (_req: Request, res: Response): Promise<void> =
 export const getMyPackage = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = (req as any).user.userId;
-    const activePackage = await UserPackage.findOne({
-      userId,
-      isActive: true,
-      expiresAt: { $gt: new Date() },
-    }).populate('packageId');
-
-    res.json({ success: true, data: activePackage || null });
+    // Dùng getActiveUserPackage: khi gói hết hạn (đúng ngày) tự động quay về gói Free
+    const activePackage = await getActiveUserPackage(userId);
+    const populated = activePackage
+      ? await UserPackage.findById(activePackage._id).populate('packageId')
+      : null;
+    res.json({ success: true, data: populated || null });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Lỗi khi tải gói hiện tại', error: err.message });
   }
@@ -95,6 +118,8 @@ export const getMyPackage = async (req: AuthRequest, res: Response): Promise<voi
 // Tạo QR SePay - giống booca createTopup
 export const createPayment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    await syncDefaultPackages();
+
     const userId = (req as any).user.userId;
     const { packageId } = req.body;
 
@@ -286,14 +311,12 @@ export const getPaymentSessionStatus = async (req: AuthRequest, res: Response): 
 
 export const seedDefaultPackages = async (_req: Request, res: Response): Promise<void> => {
   try {
-    const existing = await ServicePackage.countDocuments();
-    if (existing > 0) {
-      res.json({ success: true, message: 'Gói dịch vụ đã tồn tại', data: await ServicePackage.find() });
-      return;
-    }
-
-    const created = await ServicePackage.insertMany(DEFAULT_PACKAGES);
-    res.json({ success: true, message: 'Đã tạo gói dịch vụ mặc định', data: created });
+    await syncDefaultPackages();
+    res.json({
+      success: true,
+      message: 'Đã đồng bộ gói dịch vụ mặc định',
+      data: await ServicePackage.find().sort({ sortOrder: 1 }),
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, message: 'Lỗi seed gói dịch vụ', error: err.message });
   }

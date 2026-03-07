@@ -6,6 +6,7 @@ const router = Router();
 
 // SePay will call this webhook when money arrives
 router.post('/webhook/sepay', sepayWebhook);
+router.post('/wallet/sepay-webhook', sepayWebhook);
 
 export default {
   router,

@@ -12,7 +12,13 @@ export const getActiveUserPackage = async (userId: mongoose.Types.ObjectId | str
 
   if (existing) return existing;
 
-  // Fallback: ensure user at least has a Free package with 1 job
+  // Khi không còn gói active (đã hết hạn): đánh dấu các gói hết hạn là inactive rồi quay về gói Free
+  await UserPackage.updateMany(
+    { userId, isActive: true, expiresAt: { $lte: now } },
+    { isActive: false }
+  );
+
+  // Fallback: đảm bảo user luôn có gói Free (1 tin)
   const freePkg = await ServicePackage.findOne({ slug: 'free', isActive: true });
   if (!freePkg) return null;
 
