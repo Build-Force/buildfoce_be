@@ -8,6 +8,7 @@ import chatRoutes from './chat';
 import jobsRoutes from './jobs';
 import hrRoutes from './hr';
 import usersRoutes from './users';
+import blogRoutes from './blogRoutes';
 
 const router = Router();
 
@@ -20,5 +21,6 @@ router.use(chatRoutes.path, chatRoutes.router);
 router.use(jobsRoutes.path, jobsRoutes.router);
 router.use(hrRoutes.path, hrRoutes.router);
 router.use(usersRoutes.path, usersRoutes.router);
+router.use(blogRoutes.path, blogRoutes.router);
 
 export default router;

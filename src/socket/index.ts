@@ -60,6 +60,16 @@ export const initializeSocket = (httpServer: HttpServer): SocketServer => {
             });
         });
 
+        // Blog: Admin joins admin room for real-time notifications
+        socket.on('join_admin_room', () => {
+            socket.join('admin_room');
+        });
+
+        // Blog: Subscribe to blog updates
+        socket.on('subscribe_blog_updates', () => {
+            socket.join('blog_updates');
+        });
+
         socket.on('disconnect', () => {
             console.log(`User ${userId} disconnected`);
         });
