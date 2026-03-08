@@ -6,6 +6,7 @@ import { uploadJobImage, handleUploadError } from '../middlewares/upload';
 import {
     createJobDraft,
     updateJobDraft,
+    closeJob,
     listPublicJobs,
     listMatchedJobsForEmployee,
     listMatchedWorkersForJob,
@@ -71,6 +72,12 @@ router.post(
     authMiddleware as RequestHandler,
     requirePermission('create:job') as RequestHandler,
     submitJobForApproval as RequestHandler
+);
+router.put(
+    '/:jobId/close',
+    authMiddleware as RequestHandler,
+    requirePermission('create:job') as RequestHandler,
+    closeJob as RequestHandler
 );
 
 // Apply workflow

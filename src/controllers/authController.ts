@@ -535,7 +535,13 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        const { firstName, lastName, phone, companyName, taxCode } = req.body;
+        const existingUser = await User.findById(userId).select('provider role');
+        if (!existingUser) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+
+        const { firstName, lastName, phone, companyName, taxCode, role } = req.body;
 
         // Build update object — only allow safe fields
         const updateData: any = {};
@@ -544,6 +550,14 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         if (phone !== undefined) updateData.phone = phone.trim() || null;
         if (companyName !== undefined) updateData.companyName = companyName.trim();
         if (taxCode !== undefined) updateData.taxCode = taxCode.trim();
+        // Cho phép user đăng ký bằng Google đổi role lần đầu (user <-> hr)
+        if (role !== undefined && existingUser.provider === 'google' && (role === 'user' || role === 'hr')) {
+            updateData.role = role;
+            if (role === 'hr' && (companyName === undefined || !companyName?.trim())) {
+                updateData.companyName = updateData.companyName || 'Công ty của tôi';
+                updateData.taxCode = updateData.taxCode || '000000000';
+            }
+        }
 
         // Validate firstName is not empty
         if (updateData.firstName !== undefined && !updateData.firstName) {
@@ -610,7 +624,8 @@ export const googleCallback = (req: Request, res: Response): void => {
             lastName: user.lastName,
         };
         const token = generateToken(payload);
-        res.redirect(`${frontendUrl}/auth/social-callback?token=${token}`);
+        const newUserParam = user.isNewUser ? '&newUser=1' : '';
+        res.redirect(`${frontendUrl}/auth/social-callback?token=${token}${newUserParam}`);
     } catch (err: any) {
         console.error('❌ Google login error:', err);
         const frontendUrl = getFrontendUrl();
