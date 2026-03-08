@@ -196,3 +196,4 @@ export const deleteChat = async (req: AuthRequest, res: Response): Promise<void>
         res.status(500).json({ success: false, message: 'Failed to delete chat.' });
     }
 };
+
