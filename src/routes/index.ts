@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import testRoutes from './test';
-import adminRoutes from './admin';
+import adminRoutes from './admin/index';
 import authRoutes from './auth';
 import surveyRoutes from './survey';
 import paymentRoutes from './payment';
@@ -12,6 +12,7 @@ import chatRoutes from './chat';
 import hrRoutes from './hr';
 import usersRoutes from './users';
 import blogRoutes from './blogRoutes';
+import reviewRoutes from './reviewRoutes';
 
 const router = Router();
 
@@ -27,6 +28,7 @@ router.use(aiRoutes.path, aiRoutes.router);
 router.use(chatRoutes.path, chatRoutes.router);
 router.use(hrRoutes.path, hrRoutes.router);
 router.use(usersRoutes.path, usersRoutes.router);
+router.use(reviewRoutes.path, reviewRoutes.router);
 router.use(blogRoutes.path, blogRoutes.router);
 
 export default router;

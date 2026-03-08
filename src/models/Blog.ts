@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import slugify from 'slugify';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const slugify = require('slugify') as (s: string, o?: { lower?: boolean; strict?: boolean }) => string;
 
 export type BlogStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'archived';
 

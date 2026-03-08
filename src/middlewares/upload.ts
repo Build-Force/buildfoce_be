@@ -33,6 +33,16 @@ const blogVideoStorage = new CloudinaryStorage({
     } as any,
 });
 
+// Job image storage (tin tuyển dụng)
+const jobImageStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/jobs',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'],
+        transformation: [{ width: 1200, quality: 'auto', fetch_format: 'auto' }],
+    } as any,
+});
+
 // Image file filter
 const imageFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
@@ -70,6 +80,13 @@ export const uploadBlogVideo = multer({
     storage: blogVideoStorage,
     limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
     fileFilter: videoFileFilter,
+});
+
+// Job image upload middleware
+export const uploadJobImage = multer({
+    storage: jobImageStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: imageFileFilter,
 });
 
 // Multer error handler

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { Job } from '../models/Job';
 import { JobApplication } from '../models/JobApplication';
+import { HrProfile } from '../models/HrProfile';
 import { AuthRequest } from '../middlewares/auth';
 import { getActiveUserPackage, canPostNewJob, incrementJobUsage } from '../services/packageService';
 
@@ -31,6 +32,7 @@ export const createJobDraft = async (req: AuthRequest, res: Response): Promise<v
       workersNeeded,
       startDate,
       endDate,
+      images,
     } = req.body;
 
     const job = await Job.create({
@@ -45,6 +47,7 @@ export const createJobDraft = async (req: AuthRequest, res: Response): Promise<v
       workersHired: 0,
       startDate,
       endDate,
+      images: Array.isArray(images) ? images : [],
       status: 'DRAFT',
     });
 
@@ -71,7 +74,7 @@ export const updateJobDraft = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const allowed = ['title', 'description', 'requirements', 'skills', 'location', 'salary', 'workersNeeded', 'startDate', 'endDate'];
+    const allowed = ['title', 'description', 'requirements', 'skills', 'location', 'salary', 'workersNeeded', 'startDate', 'endDate', 'images'];
     for (const key of allowed) {
       if (key in req.body) {
         (job as any)[key] = (req.body as any)[key];
@@ -123,11 +126,36 @@ export const getJobDetail = async (req: AuthRequest, res: Response): Promise<voi
     if (job.status !== 'APPROVED') {
       const userId = getAuthUserId(req);
       const role = req.user?.role;
-      const isOwner = userId && job.hrId?.toString?.() === userId;
+      const hrIdVal = (job.hrId as any)?._id ?? job.hrId;
+      const isOwner = userId && String(hrIdVal) === userId;
       const isAdmin = role === 'ADMIN';
       if (!isOwner && !isAdmin) {
         res.status(403).json({ success: false, message: 'Access denied.' });
         return;
+      }
+    }
+
+    const hrUserId = (job.hrId as any)?._id ?? job.hrId;
+    if (hrUserId) {
+      const hrProfile = await HrProfile.findOne({ userId: hrUserId }).select('averageRating').lean() as { averageRating?: number } | null;
+      if (hrProfile && job.hrId && typeof job.hrId === 'object') {
+        (job as any).hrId = { ...(job.hrId as object), averageRating: hrProfile.averageRating };
+      }
+    }
+
+    const userId = (req as any).user ? getAuthUserId(req) : null;
+    if (userId && String(hrUserId) !== userId) {
+      const myApp = await JobApplication.findOne(
+        { jobId: job._id, workerId: userId },
+        'status decisionReason appliedAt'
+      ).lean();
+      if (myApp) {
+        (job as any).myApplication = {
+          _id: myApp._id,
+          status: myApp.status,
+          decisionReason: myApp.decisionReason,
+          appliedAt: myApp.appliedAt,
+        };
       }
     }
 

@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { User } from '../models/User';
+import { HrProfile } from '../models/HrProfile';
+import { Review } from '../models/Review';
+import { JobApplication } from '../models/JobApplication';
 import { env } from '../config/env';
 import { generateOTP, hashOTP, verifyOTP } from '../utils/otp';
 import { sendOTPEmail, sendVerifyLinkEmail } from '../utils/email';
@@ -240,14 +244,36 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = (req as any).user.userId;
-        const user = await User.findById(userId).select('-password -cccdHash');
-
+        const user = await User.findById(userId).select('-password -cccdHash').lean();
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found' });
             return;
         }
+        const data: Record<string, any> = { ...user };
 
-        res.json({ success: true, data: user });
+        const objectUserId = new mongoose.Types.ObjectId(userId);
+
+        if ((user as any).role === 'hr') {
+            const hrProfile = await HrProfile.findOne({ userId: objectUserId }).select('totalJobsPosted').lean() as { totalJobsPosted?: number } | null;
+            data.totalJobsPosted = hrProfile?.totalJobsPosted ?? 0;
+            const stats = await Review.aggregate([
+                { $match: { targetId: objectUserId } },
+                { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+            ]);
+            data.averageRating = stats[0] ? Math.round((stats[0].avg as number) * 10) / 10 : 0;
+            data.reviewCount = stats[0]?.count ?? 0;
+        } else {
+            const stats = await Review.aggregate([
+                { $match: { targetId: objectUserId } },
+                { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+            ]);
+            data.averageRating = stats[0] ? Math.round((stats[0].avg as number) * 10) / 10 : 0;
+            data.reviewCount = stats[0]?.count ?? 0;
+            const jobsCompleted = await JobApplication.countDocuments({ workerId: objectUserId, status: 'COMPLETED' });
+            data.jobsCompleted = jobsCompleted;
+        }
+
+        res.json({ success: true, data });
     } catch (err: any) {
         res.status(500).json({ success: false, message: 'Get profile error', error: err.message });
     }

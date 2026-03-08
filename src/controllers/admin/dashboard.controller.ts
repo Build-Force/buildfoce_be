@@ -19,7 +19,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       User.countDocuments(),
       HrProfile.countDocuments(),
       Job.countDocuments({ status: 'APPROVED' }),
-      Job.countDocuments({ status: 'PENDING_APPROVAL' }),
+      Job.countDocuments({ status: 'PENDING' }),
       Dispute.countDocuments({ status: 'OPEN' }),
     ]);
 
