@@ -7,6 +7,8 @@ import {
     createJobDraft,
     updateJobDraft,
     listPublicJobs,
+    listMatchedJobsForEmployee,
+    listMatchedWorkersForJob,
     getJobDetail,
     submitJobForApproval,
 } from '../controllers/jobController';
@@ -16,6 +18,8 @@ const router = Router();
 
 // Public list/detail (detail supports optional auth for owner/admin view of non-approved)
 router.get('/', listPublicJobs);
+router.get('/matched', authMiddleware as RequestHandler, listMatchedJobsForEmployee as RequestHandler);
+router.get('/:jobId/matched-workers', authMiddleware as RequestHandler, requirePermission('manage:candidates') as RequestHandler, listMatchedWorkersForJob as RequestHandler);
 router.get('/:jobId', optionalAuthMiddleware as RequestHandler, getJobDetail as RequestHandler);
 
 // HR upload job image (must be before /:jobId)

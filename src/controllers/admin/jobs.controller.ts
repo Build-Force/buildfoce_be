@@ -7,6 +7,8 @@ import { AuthRequest } from '../../middlewares/auth';
 import { sendJobApprovedEmail, sendJobRejectedEmail } from '../../utils/email';
 import { env } from '../../config/env';
 
+type JobStatus = 'DRAFT' | 'PENDING' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'EXPIRED' | 'FILLED' | 'CLOSED' | 'COMPLETED';
+
 const parsePagination = (req: Request): { page: number; limit: number; skip: number } => {
   const page = Math.max(parseInt(String(req.query.page || '1'), 10), 1);
   const limit = Math.max(parseInt(String(req.query.limit || '20'), 10), 1);
@@ -17,7 +19,7 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
   try {
     const { page, limit, skip } = parsePagination(req);
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
-    let status = typeof req.query.status === 'string' ? req.query.status : undefined;
+    let status = typeof req.query.status === 'string' ? (req.query.status as JobStatus) : undefined;
     const region = typeof req.query.region === 'string' ? req.query.region.trim() : undefined;
 
     const query: FilterQuery<typeof Job> = {};
@@ -31,7 +33,7 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
 
     if (status) {
       if (status === 'PENDING_APPROVAL') status = 'PENDING';
-      if (['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'FILLED', 'CLOSED', 'COMPLETED'].includes(status)) {
+      if (['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'EXPIRED', 'FILLED', 'CLOSED', 'COMPLETED'].includes(status)) {
         query.status = status;
       }
     }
@@ -45,7 +47,7 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('hrId', 'firstName lastName companyName')
+        .populate('hrId', 'firstName lastName email companyName')
         .lean(),
       Job.countDocuments(query),
     ]);
