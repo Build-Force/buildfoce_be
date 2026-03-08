@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import { User } from '../models/User';
+import { HrProfile } from '../models/HrProfile';
+import { Review } from '../models/Review';
+import { JobApplication } from '../models/JobApplication';
 import { env } from '../config/env';
 import { generateOTP, hashOTP, verifyOTP } from '../utils/otp';
 import { sendOTPEmail, sendVerifyLinkEmail } from '../utils/email';
@@ -17,7 +21,13 @@ const TEMP_TOKEN_SECRET = process.env.TEMP_TOKEN_SECRET || 'buildforce_temp_secr
 // ====================== REGISTER ======================
 export const register = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email, password, firstName, lastName, phone, role, companyName, taxCode } = req.body;
+        const { username, email, password, firstName, lastName, phone, role, companyName, taxCode } = req.body;
+
+        const normalizedUsername = typeof username === 'string' ? username.trim().toLowerCase() : '';
+        if (!normalizedUsername) {
+            res.status(400).json({ success: false, message: 'Username is required' });
+            return;
+        }
 
         // BuildForce requires email
         if (!email) {
@@ -32,6 +42,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
+        {
+            const existingUsername = await User.findOne({ username: normalizedUsername });
+            if (existingUsername) {
+                res.status(400).json({ success: false, message: 'Username already exists' });
+                return;
+            }
+        }
+
         // Checking duplicate phone if provided
         if (phone) {
             const existingPhone = await User.findOne({ phone });
@@ -42,7 +60,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         }
 
         // Create a verification token with user data (expires in 24h)
-        const payload: any = { email, password, firstName, lastName, phone, role };
+        const payload: any = { username: normalizedUsername, email, password, firstName, lastName, phone, role };
         if (role === 'hr') {
             payload.companyName = companyName;
             payload.taxCode = taxCode;
@@ -102,7 +120,8 @@ export const verifyEmailByLink = async (req: Request, res: Response): Promise<vo
             return;
         }
 
-        const { email, password, firstName, lastName, phone, role, companyName, taxCode } = decoded;
+        const { username, email, password, firstName, lastName, phone, role, companyName, taxCode } = decoded;
+        const normalizedUsername = username ? String(username).trim().toLowerCase() : undefined;
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -112,8 +131,17 @@ export const verifyEmailByLink = async (req: Request, res: Response): Promise<vo
             return;
         }
 
+        if (normalizedUsername) {
+            const existingUsername = await User.findOne({ username: normalizedUsername });
+            if (existingUsername) {
+                res.status(400).json({ success: false, message: 'Username already exists' });
+                return;
+            }
+        }
+
         // Save user with isVerified = true
         const user = new User({
+            username: normalizedUsername,
             email,
             password,
             firstName,
@@ -152,8 +180,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        // Try finding by email or phone
-        const user = await User.findOne({ $or: [{ email: identifier }, { phone: identifier }] }).select('+password');
+        // Try finding by email or phone or username
+        const user = await User.findOne({ $or: [{ email: identifier }, { phone: identifier }, { username: identifier }] }).select('+password');
         if (!user) {
             res.status(401).json({ success: false, message: 'Invalid credentials' });
             return;
@@ -173,6 +201,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         // Generate token payload
         const payload = {
             userId: user._id,
+            username: user.username,
             email: user.email,
             phone: user.phone,
             role: user.role,
@@ -188,6 +217,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
             data: {
                 user: {
                     _id: user._id,
+                    username: user.username,
                     email: user.email,
                     phone: user.phone,
                     firstName: user.firstName,
@@ -214,14 +244,36 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 export const getProfile = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = (req as any).user.userId;
-        const user = await User.findById(userId).select('-password -cccdHash');
-
+        const user = await User.findById(userId).select('-password -cccdHash').lean();
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found' });
             return;
         }
+        const data: Record<string, any> = { ...user };
 
-        res.json({ success: true, data: user });
+        const objectUserId = new mongoose.Types.ObjectId(userId);
+
+        if ((user as any).role === 'hr') {
+            const hrProfile = await HrProfile.findOne({ userId: objectUserId }).select('totalJobsPosted').lean() as { totalJobsPosted?: number } | null;
+            data.totalJobsPosted = hrProfile?.totalJobsPosted ?? 0;
+            const stats = await Review.aggregate([
+                { $match: { targetId: objectUserId } },
+                { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+            ]);
+            data.averageRating = stats[0] ? Math.round((stats[0].avg as number) * 10) / 10 : 0;
+            data.reviewCount = stats[0]?.count ?? 0;
+        } else {
+            const stats = await Review.aggregate([
+                { $match: { targetId: objectUserId } },
+                { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
+            ]);
+            data.averageRating = stats[0] ? Math.round((stats[0].avg as number) * 10) / 10 : 0;
+            data.reviewCount = stats[0]?.count ?? 0;
+            const jobsCompleted = await JobApplication.countDocuments({ workerId: objectUserId, status: 'COMPLETED' });
+            data.jobsCompleted = jobsCompleted;
+        }
+
+        res.json({ success: true, data });
     } catch (err: any) {
         res.status(500).json({ success: false, message: 'Get profile error', error: err.message });
     }
@@ -230,11 +282,24 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
 // ====================== FORGOT PASSWORD ======================
 export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { email } = req.body;
-        const user = await User.findOne({ email });
+        const { identifier } = req.body;
+
+        if (!identifier) {
+            res.status(400).json({ success: false, message: "Identifier is required" });
+            return;
+        }
+
+        const user = await User.findOne({
+            $or: [{ email: identifier }, { phone: identifier }, { username: identifier }]
+        });
 
         if (!user) {
-            res.status(404).json({ success: false, message: "Email not found" });
+            res.status(404).json({ success: false, message: "Account not found" });
+            return;
+        }
+
+        if (!user.email) {
+            res.status(400).json({ success: false, message: "No email associated with this account to send OTP to." });
             return;
         }
 
@@ -242,18 +307,19 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
         const otpHash = hashOTP(otp);
 
         try {
-            await sendOTPEmail(email, otp);
+            await sendOTPEmail(user.email, otp);
         } catch (error) {
             res.status(500).json({ success: false, message: "Unable to send OTP via email" });
             return;
         }
 
-        const tempToken = jwt.sign({ email, otpHash }, TEMP_TOKEN_SECRET, { expiresIn: "5m" });
+        const tempToken = jwt.sign({ email: user.email, otpHash }, TEMP_TOKEN_SECRET, { expiresIn: "5m" });
 
         res.json({
             success: true,
             message: "OTP has been sent to your email",
             tempToken,
+            email: user.email,
         });
     } catch (err: any) {
         res.status(500).json({ success: false, message: "Forgot password error", error: err.message });

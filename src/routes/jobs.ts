@@ -1,7 +1,8 @@
-import { Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import { authMiddleware, optionalAuthMiddleware, requirePermission } from '../middlewares/auth';
 import { validate } from '../middlewares/validation';
+import { uploadJobImage, handleUploadError } from '../middlewares/upload';
 import {
     createJobDraft,
     updateJobDraft,
@@ -16,6 +17,28 @@ const router = Router();
 // Public list/detail (detail supports optional auth for owner/admin view of non-approved)
 router.get('/', listPublicJobs);
 router.get('/:jobId', optionalAuthMiddleware, getJobDetail);
+
+// HR upload job image (must be before /:jobId)
+router.post(
+    '/upload/image',
+    authMiddleware,
+    requirePermission('create:job'),
+    uploadJobImage.single('image'),
+    handleUploadError,
+    (req: Request, res: Response) => {
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: 'No image file provided. Send as multipart/form-data with field name "image".',
+            });
+        }
+        const url = (req.file as any).path || (req.file as any).secure_url;
+        return res.json({
+            success: true,
+            data: { url },
+        });
+    }
+);
 
 // HR create/update/submit
 router.post(
@@ -63,4 +86,3 @@ export default {
     router,
     path: '/jobs',
 };
-

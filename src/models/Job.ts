@@ -43,6 +43,8 @@ export interface IJob extends Document {
   endDate?: Date;
   status: JobStatus;
   adminReview?: IAdminReview;
+  /** URLs of job images (from Cloudinary) */
+  images?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,6 +111,7 @@ const jobSchema = new Schema<IJob>(
       reviewedAt: { type: Date },
       reason: { type: String, trim: true },
     },
+    images: [{ type: String, trim: true }],
   },
   {
     timestamps: true,
