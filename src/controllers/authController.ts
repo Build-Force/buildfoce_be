@@ -74,6 +74,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         try {
             await sendVerifyLinkEmail(email, verifyUrl);
         } catch (emailError: any) {
+            const rawMessage = emailError?.response?.body?.errors?.[0]?.message || emailError?.message || '';
+            const isQuotaError = /maximum credits exceeded|quota|limit exceeded/i.test(String(rawMessage));
             // Log detailed SendGrid errors for debugging
             console.error('❌ Failed to send verify link email:', emailError?.message);
             if (emailError?.response?.body) {
@@ -81,8 +83,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             }
             res.status(500).json({
                 success: false,
-                message: 'Failed to send verification email. Please try again later.',
-                emailError: emailError?.response?.body?.errors?.[0]?.message || emailError?.message
+                message: isQuotaError
+                    ? 'Dịch vụ gửi email tạm thời không khả dụng (đã hết hạn mức). Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
+                    : 'Failed to send verification email. Please try again later.',
+                emailError: rawMessage
             });
             return;
         }
@@ -90,7 +94,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         res.json({
             success: true,
             message: 'A verification link has been sent to your email. Please check your inbox to activate your account.',
-            devVerifyUrl: verifyUrl
         });
     } catch (err) {
         console.error('❌ Registration error:', err);
