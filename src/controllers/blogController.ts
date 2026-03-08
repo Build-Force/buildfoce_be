@@ -292,6 +292,118 @@ export const replyComment = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const updateComment = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId } = req.params;
+        const { content } = req.body;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        if (comment.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        comment.content = content;
+        await blog.save();
+
+        return res.json({ success: true, data: comment });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteComment = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId } = req.params;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        if (comment.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        (blog.commentsList as any).pull(commentId);
+        await blog.save();
+
+        return res.json({ success: true, message: 'Comment deleted successfully' });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateReply = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId, replyId } = req.params;
+        const { content } = req.body;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        const reply = (comment.replies as any).id(replyId);
+        if (!reply) return res.status(404).json({ success: false, message: 'Reply not found' });
+
+        if (reply.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        reply.content = content;
+        await blog.save();
+
+        return res.json({ success: true, data: reply });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteReply = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId, replyId } = req.params;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        const reply = (comment.replies as any).id(replyId);
+        if (!reply) return res.status(404).json({ success: false, message: 'Reply not found' });
+
+        if (reply.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        (comment.replies as any).pull(replyId);
+        await blog.save();
+
+        return res.json({ success: true, message: 'Reply deleted successfully' });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 export const approveBlog = async (req: AuthRequest, res: Response) => {
     try {
         if (req.user?.role !== 'ADMIN') return res.status(403).json({ success: false, message: 'Forbidden' });
