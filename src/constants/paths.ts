@@ -22,7 +22,6 @@ export const AUTH_PATHS = {
   GOOGLE: '/google',
   GOOGLE_CALLBACK: '/google/callback',
   GOOGLE_MOBILE: '/google/mobile',
-  VERIFY_GOOGLE_EMAIL: '/verify-google-email',
   FACEBOOK: '/facebook',
   FACEBOOK_CALLBACK: '/facebook/callback',
   FACEBOOK_MOBILE: '/facebook/mobile',

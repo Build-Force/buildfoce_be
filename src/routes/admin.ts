@@ -1,4 +1,4 @@
-import { RequestHandler, Router } from 'express';
+import { Router } from 'express';
 import { body } from 'express-validator';
 import { authMiddleware, requirePermission } from '../middlewares/auth';
 import { validate } from '../middlewares/validation';
@@ -8,12 +8,12 @@ import { activateHrPackage } from '../controllers/adminPackageController';
 const router = Router();
 
 // Jobs moderation
-router.get('/jobs/pending', authMiddleware as RequestHandler, requirePermission('manage:jobs') as RequestHandler, listPendingJobs);
-router.put('/jobs/:jobId/approve', authMiddleware as RequestHandler, requirePermission('manage:jobs') as RequestHandler, approveJob);
+router.get('/jobs/pending', authMiddleware, requirePermission('manage:jobs'), listPendingJobs);
+router.put('/jobs/:jobId/approve', authMiddleware, requirePermission('manage:jobs'), approveJob);
 router.put(
     '/jobs/:jobId/reject',
-    authMiddleware as RequestHandler,
-    requirePermission('manage:jobs') as RequestHandler,
+    authMiddleware,
+    requirePermission('manage:jobs'),
     validate([body('reason').optional().isString().withMessage('reason must be string')]),
     rejectJob
 );
@@ -21,8 +21,8 @@ router.put(
 // HR package activation (dev)
 router.put(
     '/hr/:userId/package',
-    authMiddleware as RequestHandler,
-    requirePermission('manage:users') as RequestHandler,
+    authMiddleware,
+    requirePermission('manage:users'),
     validate([
         body('tier').trim().notEmpty().withMessage('tier is required'),
         body('activeUntil').trim().notEmpty().withMessage('activeUntil is required'),

@@ -1,4 +1,4 @@
-import { RequestHandler, Router } from 'express';
+import { Router } from 'express';
 import { approveJob, getJobs, rejectJob } from '../../controllers/admin/jobs.controller';
 import { validateRequest } from '../../middlewares/validate';
 import { jobsListValidator, mongoIdParamValidator, rejectJobValidator } from '../../validators/adminValidators';
@@ -6,7 +6,7 @@ import { jobsListValidator, mongoIdParamValidator, rejectJobValidator } from '..
 const router = Router();
 
 router.get('/', jobsListValidator, validateRequest, getJobs);
-router.patch('/:id/approve', mongoIdParamValidator, validateRequest, approveJob as RequestHandler);
-router.patch('/:id/reject', rejectJobValidator, validateRequest, rejectJob as RequestHandler);
+router.patch('/:id/approve', mongoIdParamValidator, validateRequest, approveJob);
+router.patch('/:id/reject', rejectJobValidator, validateRequest, rejectJob);
 
 export default router;

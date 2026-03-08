@@ -6,7 +6,6 @@ import { HrProfile } from '../models/HrProfile';
 import { Review } from '../models/Review';
 import { JobApplication } from '../models/JobApplication';
 import { env } from '../config/env';
-import { USER_ROLES } from '../constants/roles';
 import { generateOTP, hashOTP, verifyOTP } from '../utils/otp';
 import { sendOTPEmail, sendVerifyLinkEmail } from '../utils/email';
 
@@ -572,102 +571,6 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     } catch (err: any) {
         console.error('Update profile error:', err);
         res.status(500).json({ success: false, message: 'Failed to update profile', error: err.message });
-    }
-};
-
-// ====================== GOOGLE OAUTH ======================
-export const verifyGoogleEmail = async (req: Request, res: Response): Promise<void> => {
-    try {
-        const token = req.query.token as string;
-        if (!token) {
-            const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
-            res.redirect(`${frontendUrl}/signin?google=error&message=missing_token`);
-            return;
-        }
-
-        let decoded: any;
-        try {
-            decoded = jwt.verify(token, TEMP_TOKEN_SECRET);
-        } catch {
-            const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
-            res.redirect(`${frontendUrl}/signin?google=error&message=invalid_token`);
-            return;
-        }
-
-        const { email, firstName, lastName, provider, userId } = decoded;
-
-        let user;
-        if (userId) {
-            user = await User.findById(userId);
-            if (!user) {
-                res.redirect(`${env.FRONTEND_URL || 'http://localhost:3000'}/signin?google=error&message=user_not_found`);
-                return;
-            }
-            user.firstName = firstName || user.firstName;
-            user.lastName = lastName ?? user.lastName;
-            user.isVerified = true;
-            user.provider = provider || 'google';
-            await user.save();
-        } else {
-            user = new User({
-                email,
-                firstName: firstName || '',
-                lastName: lastName || '',
-                isVerified: true,
-                provider: 'google',
-                role: USER_ROLES.USER,
-            });
-            await user.save();
-        }
-
-        const payload = {
-            userId: user._id,
-            username: user.username,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            firstName: user.firstName,
-            lastName: user.lastName,
-        };
-        const loginToken = generateToken(payload);
-        const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
-        res.redirect(`${frontendUrl}/signin?google=success&token=${loginToken}&email=${encodeURIComponent(email)}`);
-    } catch (err: any) {
-        console.error('Verify Google email error:', err);
-        const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
-        res.redirect(`${frontendUrl}/signin?google=error&message=verification_failed`);
-    }
-};
-
-export const googleCallback = (req: Request, res: Response): void => {
-    try {
-        const user = (req as any).user as any;
-
-        if (user?.verificationRequired) {
-            const frontendUrl = env.FRONTEND_URL || 'http://localhost:3000';
-            res.redirect(`${frontendUrl}/signin?google=verify&email=${encodeURIComponent(user.email)}`);
-            return;
-        }
-
-        if (!user) {
-            res.redirect(`${env.FRONTEND_URL || 'http://localhost:3000'}/signin?google=error&message=authentication_failed`);
-            return;
-        }
-
-        const payload = {
-            userId: user._id,
-            username: user.username,
-            email: user.email,
-            phone: user.phone,
-            role: user.role,
-            firstName: user.firstName,
-            lastName: user.lastName,
-        };
-        const token = generateToken(payload);
-        res.redirect(`${env.FRONTEND_URL || 'http://localhost:3000'}/signin?google=success&token=${token}`);
-    } catch (err: any) {
-        console.error('Google login error:', err);
-        res.redirect(`${env.FRONTEND_URL || 'http://localhost:3000'}/signin?google=error&message=server_error`);
     }
 };
 

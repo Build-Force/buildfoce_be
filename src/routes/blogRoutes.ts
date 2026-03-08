@@ -1,4 +1,4 @@
-import { Request, RequestHandler, Response, Router } from 'express';
+import { Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import * as blogController from '../controllers/blogController';
 import { authenticateToken } from '../middlewares/auth';
@@ -14,7 +14,7 @@ router.get('/:slug', blogController.getBlogBySlug);
 // Media upload routes
 router.post(
     '/upload/image',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     uploadBlogImage.single('image'),
     handleUploadError,
     (req: Request, res: Response) => {
@@ -30,7 +30,7 @@ router.post(
 
 router.post(
     '/upload/video',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     uploadBlogVideo.single('video'),
     handleUploadError,
     (req: Request, res: Response) => {
@@ -47,46 +47,46 @@ router.post(
 // Protected routes
 router.post(
     '/',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     validate([
         body('title').trim().notEmpty().withMessage('Tiêu đề không được để trống'),
         body('content').notEmpty().withMessage('Nội dung không được để trống'),
         body('media.featuredImage').notEmpty().withMessage('Ảnh đại diện là bắt buộc'),
     ]),
-    blogController.createBlog as RequestHandler
+    blogController.createBlog
 );
 
-router.patch('/:id', authenticateToken as RequestHandler, blogController.updateBlog as RequestHandler);
-router.delete('/:id', authenticateToken as RequestHandler, blogController.deleteBlog as RequestHandler);
-router.post('/:id/like', authenticateToken as RequestHandler, blogController.likeBlog as RequestHandler);
+router.patch('/:id', authenticateToken, blogController.updateBlog);
+router.delete('/:id', authenticateToken, blogController.deleteBlog);
+router.post('/:id/like', authenticateToken, blogController.likeBlog);
 
 router.post(
     '/:id/comment',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung bình luận không được để trống'),
     ]),
-    blogController.commentBlog as RequestHandler
+    blogController.commentBlog
 );
 
 router.post(
     '/:id/comment/:commentId/reply',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung phản hồi không được để trống'),
     ]),
-    blogController.replyComment as RequestHandler
+    blogController.replyComment
 );
 
 // Admin routes
-router.patch('/:id/approve', authenticateToken as RequestHandler, blogController.approveBlog as RequestHandler);
+router.patch('/:id/approve', authenticateToken, blogController.approveBlog);
 router.patch(
     '/:id/reject',
-    authenticateToken as RequestHandler,
+    authenticateToken,
     validate([
         body('reason').trim().notEmpty().withMessage('Lý do từ chối không được để trống'),
     ]),
-    blogController.rejectBlog as RequestHandler
+    blogController.rejectBlog
 );
 
 export default {
