@@ -68,8 +68,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
         const verifyToken = jwt.sign(payload, TEMP_TOKEN_SECRET, { expiresIn: '24h' });
 
-        // Verification link points to FE page that will call BE verify endpoint
-        const verifyUrl = `${env.FRONTEND_URL}/auth/verify-link-email?token=${verifyToken}`;
+        // Verification link must use production URL in production (never localhost)
+        const frontendBase = env.FRONTEND_URL || process.env.FRONTEND_URL || '';
+        if (process.env.NODE_ENV === 'production' && (!frontendBase || frontendBase.includes('localhost'))) {
+            console.error('❌ FRONTEND_URL is missing or localhost in production. Set FRONTEND_URL to your production domain (e.g. https://yourdomain.com) in .env or server environment.');
+            res.status(500).json({ success: false, message: 'Server configuration error. Please contact support.' });
+            return;
+        }
+        const verifyUrl = `${frontendBase || 'http://localhost:3000'}/auth/verify-link-email?token=${verifyToken}`;
 
         try {
             await sendVerifyLinkEmail(email, verifyUrl);
@@ -574,6 +580,113 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     } catch (err: any) {
         console.error('Update profile error:', err);
         res.status(500).json({ success: false, message: 'Failed to update profile', error: err.message });
+    }
+};
+
+// ====================== GOOGLE OAUTH ======================
+const getFrontendUrl = () => env.FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+export const googleCallback = (req: Request, res: Response): void => {
+    try {
+        const user = (req as any).user as any;
+        const frontendUrl = getFrontendUrl();
+
+        if (user?.verificationRequired) {
+            res.redirect(`${frontendUrl}/auth/google-verification-required?email=${encodeURIComponent(user.email)}`);
+            return;
+        }
+        if (!user) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=authentication_failed`);
+            return;
+        }
+
+        const payload = {
+            userId: user._id,
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+        };
+        const token = generateToken(payload);
+        res.redirect(`${frontendUrl}/auth/social-callback?token=${token}`);
+    } catch (err: any) {
+        console.error('❌ Google login error:', err);
+        const frontendUrl = getFrontendUrl();
+        res.redirect(`${frontendUrl}/auth/social-callback?error=server_error`);
+    }
+};
+
+export const verifyGoogleEmail = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const token = (req.query.token as string) || '';
+        const frontendUrl = getFrontendUrl();
+        if (!token) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=missing_token`);
+            return;
+        }
+        let decoded: any;
+        try {
+            decoded = jwt.verify(token, TEMP_TOKEN_SECRET);
+        } catch {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=invalid_token`);
+            return;
+        }
+        const { email, firstName, lastName, provider, userId } = decoded;
+        if (!email) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=invalid_token`);
+            return;
+        }
+
+        let user: any;
+        if (userId) {
+            user = await User.findById(userId);
+            if (!user) {
+                res.redirect(`${frontendUrl}/auth/social-callback?error=user_not_found`);
+                return;
+            }
+            user.firstName = firstName ?? user.firstName;
+            user.lastName = lastName ?? user.lastName;
+            user.isVerified = true;
+            user.provider = provider || 'google';
+            await user.save();
+        } else {
+            const existing = await User.findOne({ email });
+            if (existing) {
+                existing.firstName = firstName ?? existing.firstName;
+                existing.lastName = lastName ?? existing.lastName;
+                existing.isVerified = true;
+                (existing as any).provider = provider || 'google';
+                await existing.save();
+                user = existing;
+            } else {
+                user = await User.create({
+                    email,
+                    firstName: firstName || 'User',
+                    lastName: lastName || '',
+                    provider: 'google',
+                    isVerified: true,
+                    role: 'user',
+                });
+            }
+        }
+
+        const loginPayload = {
+            userId: user._id,
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+        };
+        const loginToken = generateToken(loginPayload);
+        res.redirect(`${frontendUrl}/auth/google-verification-success?token=${loginToken}&email=${encodeURIComponent(email)}`);
+    } catch (err: any) {
+        console.error('❌ Verify Google email error:', err);
+        const frontendUrl = getFrontendUrl();
+        res.redirect(`${frontendUrl}/auth/social-callback?error=verification_failed`);
     }
 };
 
