@@ -41,6 +41,10 @@ export interface IJob extends Document {
   workersHired: number;
   startDate?: Date;
   endDate?: Date;
+  /** Minimum years of experience required (for auto-match). */
+  minExperienceYears?: number;
+  /** If true, only verified (e.g. CCCD) employees are shown. */
+  verificationRequired?: boolean;
   status: JobStatus;
   adminReview?: IAdminReview;
   createdAt: Date;
@@ -98,6 +102,8 @@ const jobSchema = new Schema<IJob>(
     },
     startDate: { type: Date },
     endDate: { type: Date },
+    minExperienceYears: { type: Number, min: 0 },
+    verificationRequired: { type: Boolean, default: false },
     status: {
       type: String,
       enum: ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'FILLED', 'CLOSED', 'COMPLETED'],

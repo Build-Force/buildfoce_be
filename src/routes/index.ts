@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import testRoutes from './test';
 import adminRoutes from './admin';
+import adminDashboardRoutes from './admin/index';
 import authRoutes from './auth';
 import surveyRoutes from './survey';
 import aiRoutes from './ai';
@@ -13,6 +14,7 @@ import blogRoutes from './blogRoutes';
 const router = Router();
 
 router.use(testRoutes.path, testRoutes.router);
+router.use(adminDashboardRoutes.path, adminDashboardRoutes.router);
 router.use(adminRoutes.path, adminRoutes.router);
 router.use(authRoutes.path, authRoutes.router);
 router.use(surveyRoutes.path, surveyRoutes.router);

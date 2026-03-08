@@ -1,9 +1,10 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { FilterQuery } from 'mongoose';
 import { Job } from '../../models';
 import { error, success } from '../../utils/apiResponse';
 
-type JobStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'EXPIRED' | 'CLOSED';
+type JobStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'FILLED' | 'CLOSED' | 'COMPLETED';
 
 const parsePagination = (req: Request): { page: number; limit: number; skip: number } => {
   const page = Math.max(parseInt(String(req.query.page || '1'), 10), 1);
@@ -17,7 +18,6 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const status = typeof req.query.status === 'string' ? (req.query.status as JobStatus) : undefined;
     const region = typeof req.query.region === 'string' ? req.query.region : undefined;
-    const jobType = typeof req.query.jobType === 'string' ? req.query.jobType : undefined;
 
     const query: FilterQuery<typeof Job> = {};
 
@@ -28,15 +28,21 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
       ];
     }
 
-    if (status && ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'EXPIRED', 'CLOSED'].includes(status)) {
+    if (status && ['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'FILLED', 'CLOSED', 'COMPLETED'].includes(status)) {
       query.status = status;
     }
 
-    if (region) query.region = { $regex: region, $options: 'i' };
-    if (jobType && ['ENGINEER', 'WORKER'].includes(jobType)) query.jobType = jobType;
+    if (region) {
+      query['location.province'] = { $regex: region, $options: 'i' };
+    }
 
     const [items, total] = await Promise.all([
-      Job.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).populate('hrProfileId').lean(),
+      Job.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('hrId', 'firstName lastName email companyName')
+        .lean(),
       Job.countDocuments(query),
     ]);
 
@@ -48,11 +54,16 @@ export const getJobs = async (req: Request, res: Response): Promise<void> => {
 
 export const approveJob = async (req: Request, res: Response): Promise<void> => {
   try {
-    const job = await Job.findByIdAndUpdate(
-      req.params.id,
-      { status: 'APPROVED', rejectReason: '' },
-      { new: true },
-    ).lean();
+    const adminId = (req as any).user?.userId ?? (req as any).user?._id;
+    const update: any = {
+      status: 'APPROVED',
+      adminReview: {
+        reviewedBy: adminId ? new mongoose.Types.ObjectId(adminId) : undefined,
+        reviewedAt: new Date(),
+      },
+    };
+
+    const job = await Job.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
 
     if (!job) {
       error(res, 'Không tìm thấy công việc', 404);
@@ -75,9 +86,17 @@ export const rejectJob = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    const adminId = (req as any).user?.userId ?? (req as any).user?._id;
     const job = await Job.findByIdAndUpdate(
       req.params.id,
-      { status: 'CLOSED', rejectReason: reason.trim() },
+      {
+        status: 'REJECTED',
+        adminReview: {
+          reviewedBy: adminId ? new mongoose.Types.ObjectId(adminId) : undefined,
+          reviewedAt: new Date(),
+          reason: reason.trim(),
+        },
+      },
       { new: true },
     ).lean();
 

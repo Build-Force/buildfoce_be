@@ -97,7 +97,7 @@ export const verifyEmailByLink = async (req: Request, res: Response): Promise<vo
         let decoded: any;
         try {
             decoded = jwt.verify(token, TEMP_TOKEN_SECRET);
-        } catch (jwtError) {
+        } catch (_jwtError) {
             res.status(400).json({ success: false, message: 'Invalid or expired token' });
             return;
         }
@@ -243,7 +243,7 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
         try {
             await sendOTPEmail(email, otp);
-        } catch (error) {
+        } catch (_err) {
             res.status(500).json({ success: false, message: "Unable to send OTP via email" });
             return;
         }
@@ -300,7 +300,7 @@ export const resetPassword = async (req: Request, res: Response): Promise<void> 
         let decoded: any;
         try {
             decoded = jwt.verify(resetToken, TEMP_TOKEN_SECRET);
-        } catch (jwtError) {
+        } catch (_jwtError) {
             res.status(400).json({ success: false, message: "Invalid or expired reset token" });
             return;
         }

@@ -6,6 +6,8 @@ import {
     createJobDraft,
     updateJobDraft,
     listPublicJobs,
+    listMatchedJobsForEmployee,
+    listMatchedWorkersForJob,
     getJobDetail,
     submitJobForApproval,
 } from '../controllers/jobController';
@@ -15,6 +17,8 @@ const router = Router();
 
 // Public list/detail (detail supports optional auth for owner/admin view of non-approved)
 router.get('/', listPublicJobs);
+router.get('/matched', authMiddleware, listMatchedJobsForEmployee);
+router.get('/:jobId/matched-workers', authMiddleware, requirePermission('manage:candidates'), listMatchedWorkersForJob);
 router.get('/:jobId', optionalAuthMiddleware, getJobDetail);
 
 // HR create/update/submit

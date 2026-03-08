@@ -36,7 +36,7 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
 
-  comparePassword(candidatePassword: string): Promise<boolean>;
+  comparePassword(_candidatePassword: string): Promise<boolean>;
 }
 
 const ROLE_VALUES: UserRole[] = ['USER', 'HR', 'ADMIN'];

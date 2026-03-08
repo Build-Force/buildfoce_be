@@ -52,7 +52,7 @@ export const hrBlacklistValidator = [
 export const jobsListValidator = [
   ...pagingValidators,
   query('search').optional().isString().isLength({ max: 100 }),
-  query('status').optional().isIn(['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'EXPIRED', 'CLOSED']),
+  query('status').optional().isIn(['DRAFT', 'PENDING', 'APPROVED', 'REJECTED', 'FILLED', 'CLOSED', 'COMPLETED']),
   query('region').optional().isString().isLength({ max: 100 }),
   query('jobType').optional().isIn(['ENGINEER', 'WORKER']),
 ];

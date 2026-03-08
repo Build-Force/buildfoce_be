@@ -19,7 +19,7 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       User.countDocuments(),
       HrProfile.countDocuments(),
       Job.countDocuments({ status: 'APPROVED' }),
-      Job.countDocuments({ status: 'PENDING_APPROVAL' }),
+      Job.countDocuments({ status: 'PENDING' }),
       Dispute.countDocuments({ status: 'OPEN' }),
     ]);
 
@@ -53,12 +53,16 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
     ]);
 
-    const [latestUsers, latestJobs, latestDisputes, latestTickets] = await Promise.all([
-      User.find({}, { passwordHash: 0 }).sort({ updatedAt: -1 }).limit(3).lean(),
-      Job.find().sort({ updatedAt: -1 }).limit(3).lean(),
-      Dispute.find().sort({ updatedAt: -1 }).limit(2).lean(),
-      SupportTicket.find().sort({ updatedAt: -1 }).limit(2).lean(),
-    ]);
+    const [usersByRole, jobsByStatus, disputesByStatus, latestUsers, latestJobs, latestDisputes, latestTickets] =
+      await Promise.all([
+        User.aggregate([{ $group: { _id: '$role', count: { $sum: 1 } } }]),
+        Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+        Dispute.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+        User.find({}).select('-password').sort({ updatedAt: -1 }).limit(3).lean(),
+        Job.find().sort({ updatedAt: -1 }).limit(3).lean(),
+        Dispute.find().sort({ updatedAt: -1 }).limit(2).lean(),
+        SupportTicket.find().sort({ updatedAt: -1 }).limit(2).lean(),
+      ]);
 
     const recentActivities = [
       ...latestUsers.map((item) => ({ type: 'USER', action: 'UPDATED', timestamp: item.updatedAt, data: item })),
@@ -80,6 +84,18 @@ export const getDashboard = async (req: Request, res: Response): Promise<void> =
       },
       jobGrowth,
       hrRegistrations,
+      usersByRole: usersByRole.reduce((acc: Record<string, number>, r) => {
+        acc[r._id] = r.count;
+        return acc;
+      }, {}),
+      jobsByStatus: jobsByStatus.reduce((acc: Record<string, number>, r) => {
+        acc[r._id] = r.count;
+        return acc;
+      }, {}),
+      disputesByStatus: disputesByStatus.reduce((acc: Record<string, number>, r) => {
+        acc[r._id] = r.count;
+        return acc;
+      }, {}),
       recentActivities,
     });
   } catch (e) {
