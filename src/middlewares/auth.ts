@@ -80,34 +80,34 @@ export const authenticateToken = verifyToken;
 export const optionalAuthMiddleware = (req: AuthRequest, _res: Response, next: NextFunction): void => {
   const token = parseToken(req);
 
-  if (!token) {
-    next();
-    return;
-  }
+        if (!token) {
+            next();
+            return;
+        }
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
     attachUserFromToken(req, decoded);
   } catch {
     // ignore invalid token for optional auth
-  }
+        }
 
-  next();
+        next();
 };
 
 export const requirePermission = (permission: Permission) => {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    if (!req.user) {
+    return (req: AuthRequest, res: Response, next: NextFunction): void => {
+        if (!req.user) {
       error(res, 'Chưa xác thực người dùng', 401);
-      return;
-    }
+            return;
+        }
 
     const roleType = toRoleType(req.user.role);
     if (!hasPermission(roleType, permission)) {
       error(res, `Bạn không có quyền '${permission}'`, 403);
-      return;
-    }
+            return;
+        }
 
-    next();
-  };
+        next();
+    };
 };
