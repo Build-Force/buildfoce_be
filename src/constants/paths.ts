@@ -121,12 +121,16 @@ export const UPLOAD_PATHS = {
   CONTRACT: '/contract', // Uploading handshake details/contracts
 } as const;
 
-// Payments Routes (PayOS integration area)
+// Payments Routes (SePay integration)
 export const PAYMENTS_PATHS = {
   BASE: '/payments',
-  PACKAGES: '/packages', // Purchasing HR Pro/Enterprise bundles
-  WEBHOOK: '/webhook/payos',
+  PACKAGES: '/packages',
+  MY_PACKAGE: '/my-package',
+  CREATE: '/create',
+  CONFIRM: '/confirm',
   HISTORY: '/history',
+  SEED: '/seed-packages',
+  SESSION: '/session/:sessionId',
 } as const;
 
 // Utility function to build full API paths

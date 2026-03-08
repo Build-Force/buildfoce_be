@@ -21,8 +21,24 @@ export const connectDatabase = async (): Promise<void> => {
             serverSelectionTimeoutMS: 5000,
         };
 
-        await mongoose.connect(mongoUri, mongooseOptions);
-        console.log('✅ Successfully connected to MongoDB database');
+    await mongoose.connect(mongoUri, mongooseOptions);
+    console.log('✅ Successfully connected to MongoDB database');
+
+    // Job model dùng location dạng { city, province, address } chứ không phải GeoJSON.
+    // Nếu collection jobs có index 2dsphere trên location (từ bản cũ) thì xóa để tránh lỗi insert.
+    try {
+      const coll = mongoose.connection.db?.collection('jobs');
+      if (coll) {
+        const indexes = await coll.indexes();
+        const geoIdx = indexes.find((i: { key?: Record<string, unknown> }) => i.key && (i.key as any).location === '2dsphere');
+        if (geoIdx && geoIdx.name) {
+          await coll.dropIndex(geoIdx.name);
+          console.log('✅ Dropped legacy geo index on jobs.location');
+        }
+      }
+    } catch (e) {
+      // Ignore (index có thể không tồn tại)
+    }
 
         mongoose.connection.on('error', (err) => {
             console.error('❌ MongoDB connection error:', err);

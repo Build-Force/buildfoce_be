@@ -2,7 +2,7 @@
   "name": "buildfoce_be",
   "version": "0.0.0",
   "private": "true",
-  "main": "dist/server.ts",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
@@ -18,7 +18,8 @@
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "test:integration": "jest --config jest.config.integration.ts",
-    "test:integration:watch": "jest --config jest.config.integration.ts --watch"
+    "test:integration:watch": "jest --config jest.config.integration.ts --watch",
+    "seed": "ts-node scripts/seed.ts"
   },
   "license": "MIT",
   "devDependencies": {
@@ -39,7 +40,7 @@
     "typescript": "^5.3.3"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.2.1",
+    "@google/generative-ai": "^0.24.1",
     "@sendgrid/mail": "^8.1.6",
     "@testsprite/testsprite-mcp": "^0.0.16",
     "@types/bcrypt": "^6.0.0",
@@ -86,6 +87,7 @@
     "puppeteer": "^24.22.0",
     "redis": "^4.6.10",
     "reflect-metadata": "^0.2.2",
+    "slugify": "^1.6.6",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "uuid": "^13.0.0",

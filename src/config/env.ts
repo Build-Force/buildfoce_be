@@ -20,10 +20,14 @@ interface EnvConfig {
     JWT_EXPIRES_IN: string;
     FRONTEND_URL: string;
     API_URL: string;
+    SEPAY_BANK: string;
+    SEPAY_ACC: string;
+    SEPAY_API_KEY: string;
     // Thêm thông tin thanh toán (PayOS) theo guild.txt
     PAYOS_CLIENT_ID: string;
     PAYOS_API_KEY: string;
     PAYOS_CHECKSUM_KEY: string;
+    GEMINI_API_KEY: string;
 }
 
 const getEnvVar = (key: string, required: boolean = true): string => {
@@ -49,7 +53,11 @@ export const env: EnvConfig = {
     JWT_EXPIRES_IN: getEnvVar("JWT_EXPIRES_IN", false) || "7d",
     FRONTEND_URL: getEnvVar("FRONTEND_URL", false) || "http://localhost:3000",
     API_URL: getEnvVar("API_URL", false),
+    SEPAY_BANK: getEnvVar("SEPAY_BANK", false) || "MBBank",
+    SEPAY_ACC: getEnvVar("SEPAY_ACC", false) || "0949064234",
+    SEPAY_API_KEY: getEnvVar("SEPAY_API_KEY", false),
     PAYOS_CLIENT_ID: getEnvVar("PAYOS_CLIENT_ID", false),
     PAYOS_API_KEY: getEnvVar("PAYOS_API_KEY", false),
     PAYOS_CHECKSUM_KEY: getEnvVar("PAYOS_CHECKSUM_KEY", false),
+    GEMINI_API_KEY: getEnvVar("GEMINI_API_KEY", true),
 };
