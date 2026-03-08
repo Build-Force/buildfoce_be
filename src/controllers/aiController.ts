@@ -50,7 +50,7 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             createdAt: new Date(),
         });
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const chatHistory = aiChat.messages.map((msg) => ({
             role: msg.role === 'assistant' ? 'model' as const : 'user' as const,
@@ -158,3 +158,4 @@ export const deleteChat = async (req: AuthRequest, res: Response): Promise<void>
         res.status(500).json({ success: false, message: 'Failed to delete chat.' });
     }
 };
+

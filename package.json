@@ -2,7 +2,7 @@
   "name": "buildfoce_be",
   "version": "0.0.0",
   "private": "true",
-  "main": "dist/server.ts",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "node dist/server.js",
