@@ -98,6 +98,32 @@ export const updateJobDraft = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
+/** HR đóng tin tuyển dụng (DRAFT/PENDING/APPROVED/REJECTED → CLOSED). */
+export const closeJob = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const hrId = getAuthUserId(req);
+    const { jobId } = req.params as any;
+
+    const job = await Job.findOne({ _id: jobId, hrId });
+    if (!job) {
+      res.status(404).json({ success: false, message: 'Job not found.' });
+      return;
+    }
+
+    if (['CLOSED', 'FILLED', 'COMPLETED'].includes(job.status)) {
+      res.status(422).json({ success: false, message: 'Tin đã đóng hoặc hoàn thành.' });
+      return;
+    }
+
+    job.status = 'CLOSED';
+    await job.save();
+    res.json({ success: true, data: job, message: 'Đã đóng tin tuyển dụng.' });
+  } catch (error) {
+    console.error('Close job error:', error);
+    res.status(500).json({ success: false, message: 'Failed to close job.' });
+  }
+};
+
 export const listPublicJobs = async (_req: Request, res: Response): Promise<void> => {
   try {
     const jobs = await Job.find({ status: 'APPROVED' })

@@ -65,7 +65,18 @@ export const env: EnvConfig = {
                   return url;
               })()
             : (getEnvVar("FRONTEND_URL", false) || "http://localhost:3000"),
-    API_URL: getEnvVar("API_URL", false) || "http://localhost:5000",
+    API_URL:
+        nodeEnv === "production"
+            ? (() => {
+                  const url = getEnvVar("API_URL", true);
+                  if (!url || url.includes("localhost")) {
+                      throw new Error(
+                          "API_URL must be set to your backend production URL (e.g. https://your-api.onrender.com) when NODE_ENV=production. Do not use localhost."
+                      );
+                  }
+                  return url;
+              })()
+            : (getEnvVar("API_URL", false) || "http://localhost:5000"),
     GOOGLE_CLIENT_ID: getEnvVar("GOOGLE_CLIENT_ID", false),
     GOOGLE_CLIENT_SECRET: getEnvVar("GOOGLE_CLIENT_SECRET", false),
     SEPAY_BANK: getEnvVar("SEPAY_BANK", false) || "MBBank",
