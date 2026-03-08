@@ -18,7 +18,8 @@
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
     "test:integration": "jest --config jest.config.integration.ts",
-    "test:integration:watch": "jest --config jest.config.integration.ts --watch"
+    "test:integration:watch": "jest --config jest.config.integration.ts --watch",
+    "seed": "ts-node scripts/seed.ts"
   },
   "license": "MIT",
   "devDependencies": {

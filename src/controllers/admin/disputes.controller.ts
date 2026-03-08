@@ -33,8 +33,8 @@ export const getDisputes = async (req: Request, res: Response): Promise<void> =>
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('reporterId', '-passwordHash')
-        .populate('targetId', '-passwordHash')
+        .populate('reporterId', 'firstName lastName email')
+        .populate('targetId', 'firstName lastName email companyName')
         .lean(),
       Dispute.countDocuments(query),
     ]);
@@ -48,8 +48,8 @@ export const getDisputes = async (req: Request, res: Response): Promise<void> =>
 export const getDisputeById = async (req: Request, res: Response): Promise<void> => {
   try {
     const item = await Dispute.findById(req.params.id)
-      .populate('reporterId', '-passwordHash')
-      .populate('targetId', '-passwordHash')
+      .populate('reporterId', 'firstName lastName email')
+      .populate('targetId', 'firstName lastName email companyName')
       .lean();
 
     if (!item) {

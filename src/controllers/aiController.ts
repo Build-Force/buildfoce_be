@@ -4,7 +4,11 @@ import { AuthRequest } from '../middlewares/auth';
 import { AIChat } from '../models/AIChat';
 import { env } from '../config/env';
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+const getGenAI = () => {
+    const key = env.GEMINI_API_KEY?.trim();
+    if (!key) throw new Error('GEMINI_API_KEY is not configured');
+    return new GoogleGenerativeAI(key);
+};
 
 const SYSTEM_PROMPT = `Bạn là BuildForce AI Assistant — trợ lý thông minh của nền tảng BuildForce, chuyên kết nối nhân lực ngành xây dựng.
 
@@ -21,7 +25,11 @@ Quy tắc:
 
 export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = req.user?.userId ?? (req.user as any)?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
         const { message, chatId } = req.body;
 
         if (!message || typeof message !== 'string' || !message.trim()) {
@@ -50,6 +58,7 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             createdAt: new Date(),
         });
 
+        const genAI = getGenAI();
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const chatHistory = aiChat.messages.map((msg) => ({
@@ -87,6 +96,13 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
     } catch (error: any) {
         console.error('AI Chat error:', error);
 
+        if (!env.GEMINI_API_KEY?.trim()) {
+            res.status(503).json({
+                success: false,
+                message: 'Tính năng AI chưa được cấu hình (thiếu GEMINI_API_KEY).',
+            });
+            return;
+        }
         if (error?.status === 429 || error?.message?.includes('429')) {
             res.status(429).json({
                 success: false,
@@ -94,14 +110,28 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             });
             return;
         }
+        if (error?.status === 401 || error?.message?.toLowerCase().includes('api key')) {
+            res.status(503).json({
+                success: false,
+                message: 'Cấu hình API AI không hợp lệ. Vui lòng kiểm tra GEMINI_API_KEY.',
+            });
+            return;
+        }
 
-        res.status(500).json({ success: false, message: 'Failed to get AI response.' });
+        res.status(500).json({
+            success: false,
+            message: error?.message || 'Không thể xử lý tin nhắn AI. Vui lòng thử lại.',
+        });
     }
 };
 
 export const getChatHistory = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = req.user?.userId ?? (req.user as any)?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
         const chats = await AIChat.find({ userId })
             .select('title messages createdAt updatedAt')
             .sort({ updatedAt: -1 })
@@ -125,7 +155,11 @@ export const getChatHistory = async (req: AuthRequest, res: Response): Promise<v
 
 export const getChatById = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = req.user?.userId ?? (req.user as any)?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
         const { chatId } = req.params;
 
         const chat = await AIChat.findOne({ _id: chatId, userId });
@@ -143,7 +177,11 @@ export const getChatById = async (req: AuthRequest, res: Response): Promise<void
 
 export const deleteChat = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const userId = req.user?._id;
+        const userId = req.user?.userId ?? (req.user as any)?._id;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized.' });
+            return;
+        }
         const { chatId } = req.params;
 
         const chat = await AIChat.findOneAndDelete({ _id: chatId, userId });

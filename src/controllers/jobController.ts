@@ -4,6 +4,7 @@ import { Job } from '../models/Job';
 import { JobApplication } from '../models/JobApplication';
 import { HrProfile } from '../models/HrProfile';
 import { AuthRequest } from '../middlewares/auth';
+import { getMatchedJobsForEmployee, getMatchedWorkersForJob } from '../services/matchService';
 import { getActiveUserPackage, canPostNewJob, incrementJobUsage } from '../services/packageService';
 
 const getAuthUserId = (req: AuthRequest): string => {
@@ -33,6 +34,8 @@ export const createJobDraft = async (req: AuthRequest, res: Response): Promise<v
       startDate,
       endDate,
       images,
+      minExperienceYears,
+      verificationRequired,
     } = req.body;
 
     const job = await Job.create({
@@ -48,6 +51,8 @@ export const createJobDraft = async (req: AuthRequest, res: Response): Promise<v
       startDate,
       endDate,
       images: Array.isArray(images) ? images : [],
+      minExperienceYears,
+      verificationRequired: Boolean(verificationRequired),
       status: 'DRAFT',
     });
 
@@ -74,7 +79,7 @@ export const updateJobDraft = async (req: AuthRequest, res: Response): Promise<v
       return;
     }
 
-    const allowed = ['title', 'description', 'requirements', 'skills', 'location', 'salary', 'workersNeeded', 'startDate', 'endDate', 'images'];
+    const allowed = ['title', 'description', 'requirements', 'skills', 'location', 'salary', 'workersNeeded', 'startDate', 'endDate', 'images', 'minExperienceYears', 'verificationRequired'];
     for (const key of allowed) {
       if (key in req.body) {
         (job as any)[key] = (req.body as any)[key];
@@ -105,6 +110,62 @@ export const listPublicJobs = async (_req: Request, res: Response): Promise<void
     console.error('List public jobs error:', error);
     res.status(500).json({ success: false, message: 'Failed to list jobs.' });
   }
+};
+
+/** Auto Match (Tier 1): jobs that pass all 5 rule-based criteria for the current employee. */
+export const listMatchedJobsForEmployee = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const userId = getAuthUserId(req);
+        const role = (req.user as any)?.role;
+        if (role !== 'USER') {
+            res.status(403).json({ success: false, message: 'Chỉ dành cho tài khoản lao động.' });
+            return;
+        }
+
+        const results = await getMatchedJobsForEmployee(userId);
+        const data = results.map((r) => ({
+            ...r.job,
+            matchScore: r.matchScore,
+            matchDetails: r.matchDetails,
+        }));
+
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('List matched jobs error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get matched jobs.' });
+    }
+};
+
+/** Auto Match (HR): workers that pass all 5 criteria for this job. Only job owner or admin. */
+export const listMatchedWorkersForJob = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { jobId } = req.params as any;
+        const userId = getAuthUserId(req);
+        const role = (req.user as any)?.role;
+
+        if (!mongoose.Types.ObjectId.isValid(jobId)) {
+            res.status(400).json({ success: false, message: 'Invalid jobId.' });
+            return;
+        }
+
+        const job = await Job.findById(jobId).select('hrId status').lean();
+        if (!job) {
+            res.status(404).json({ success: false, message: 'Job not found.' });
+            return;
+        }
+        const isOwner = job.hrId?.toString() === userId;
+        const isAdmin = role === 'ADMIN';
+        if (!isOwner && !isAdmin) {
+            res.status(403).json({ success: false, message: 'Chỉ chủ tin hoặc Admin mới xem được ứng viên phù hợp.' });
+            return;
+        }
+
+        const data = await getMatchedWorkersForJob(jobId);
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('List matched workers error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get matched workers.' });
+    }
 };
 
 export const getJobDetail = async (req: AuthRequest, res: Response): Promise<void> => {
