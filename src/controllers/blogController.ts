@@ -211,13 +211,41 @@ export const likeBlog = async (req: AuthRequest, res: Response) => {
         if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
 
         const likeIndex = blog.interact.likes.findIndex(l => l.toString() === userId);
+        let isLiking = false;
         if (likeIndex > -1) {
             blog.interact.likes.splice(likeIndex, 1);
         } else {
             blog.interact.likes.push(new mongoose.Types.ObjectId(userId));
+            isLiking = true;
         }
 
         await blog.save();
+
+        // Send real-time notification to blog author if liked
+        if (isLiking && blog.author.id.toString() !== userId) {
+            const io = getIo(req);
+            if (io) {
+                const user = await User.findById(userId);
+                io.to(`user:${blog.author.id.toString()}`).emit('new_notification', {
+                    type: 'blog_like',
+                    message: `${user?.firstName} ${user?.lastName || ''} đã thích bài viết "${blog.title}".`.trim(),
+                    blogId: blog._id,
+                    blogSlug: blog.slug,
+                });
+            }
+        }
+
+        // Notify all viewers of this blog to update their view
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
         return res.json({ success: true, likesCount: blog.interact.likesCount, isLiked: likeIndex === -1 });
     } catch (error: any) {
         return res.status(500).json({ success: false, message: error.message });
@@ -251,6 +279,32 @@ export const commentBlog = async (req: AuthRequest, res: Response) => {
         } as any);
 
         await blog.save();
+
+        // Send real-time notification to blog author
+        const io = getIo(req);
+        if (blog.author.id.toString() !== userId) {
+            if (io) {
+                const plainContent = content.replace(/<[^>]+>/g, '');
+                const shortContent = plainContent.length > 40 ? plainContent.substring(0, 40) + '...' : plainContent;
+                io.to(`user:${blog.author.id.toString()}`).emit('new_notification', {
+                    type: 'blog_comment',
+                    message: `${user.firstName} ${user.lastName || ''} đã bình luận: "${shortContent}"`.trim(),
+                    blogId: blog._id,
+                    blogSlug: blog.slug,
+                });
+            }
+        }
+
+        // Notify all viewers of this blog to update their view
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
         return res.json({ success: true, data: blog.commentsList[blog.commentsList.length - 1] });
     } catch (error: any) {
         return res.status(500).json({ success: false, message: error.message });
@@ -286,7 +340,170 @@ export const replyComment = async (req: AuthRequest, res: Response) => {
         } as any);
 
         await blog.save();
+
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
         return res.json({ success: true, data: comment.replies[comment.replies.length - 1] });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateComment = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId } = req.params;
+        const { content } = req.body;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        if (comment.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        comment.content = content;
+        await blog.save();
+
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
+        return res.json({ success: true, data: comment });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteComment = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId } = req.params;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        if (comment.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        (blog.commentsList as any).pull(commentId);
+        await blog.save();
+
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
+        return res.json({ success: true, message: 'Comment deleted successfully' });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const updateReply = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId, replyId } = req.params;
+        const { content } = req.body;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        const reply = (comment.replies as any).id(replyId);
+        if (!reply) return res.status(404).json({ success: false, message: 'Reply not found' });
+
+        if (reply.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        reply.content = content;
+        await blog.save();
+
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
+        return res.json({ success: true, data: reply });
+    } catch (error: any) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+export const deleteReply = async (req: AuthRequest, res: Response) => {
+    try {
+        const userId = getAuthUserId(req);
+        if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
+
+        const { id, commentId, replyId } = req.params;
+
+        const blog = await Blog.findById(id);
+        if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
+
+        const comment = (blog.commentsList as any).id(commentId);
+        if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+        const reply = (comment.replies as any).id(replyId);
+        if (!reply) return res.status(404).json({ success: false, message: 'Reply not found' });
+
+        if (reply.author.id.toString() !== userId && req.user?.role !== 'ADMIN') {
+            return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+
+        (comment.replies as any).pull(replyId);
+        await blog.save();
+
+        const io = getIo(req);
+        if (io) {
+            io.to(`blog:${blog._id.toString()}`).emit('blog_updated');
+            io.to('blog_updates').emit('feed_blog_updated', {
+                blogId: blog._id.toString(),
+                likesCount: blog.interact.likesCount,
+                commentsCount: blog.interact.commentsCount,
+            });
+        }
+
+        return res.json({ success: true, message: 'Reply deleted successfully' });
     } catch (error: any) {
         return res.status(500).json({ success: false, message: error.message });
     }

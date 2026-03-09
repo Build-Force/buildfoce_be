@@ -78,6 +78,29 @@ router.post(
     blogController.replyComment as RequestHandler
 );
 
+router.patch(
+    '/:id/comment/:commentId',
+    authenticateToken,
+    validate([
+        body('content').trim().notEmpty().withMessage('Nội dung bình luận không được để trống'),
+    ]),
+    blogController.updateComment as RequestHandler
+);
+
+router.delete('/:id/comment/:commentId', authenticateToken as RequestHandler, blogController.deleteComment as RequestHandler);
+
+router.patch(
+    '/:id/comment/:commentId/reply/:replyId',
+    authenticateToken,
+    validate([
+        body('content').trim().notEmpty().withMessage('Nội dung phản hồi không được để trống'),
+    ]),
+    blogController.updateReply as RequestHandler
+);
+
+router.delete('/:id/comment/:commentId/reply/:replyId', authenticateToken as RequestHandler, blogController.deleteReply as RequestHandler);
+
+
 // Admin routes
 router.patch('/:id/approve', authenticateToken as RequestHandler, blogController.approveBlog as RequestHandler);
 router.patch(
