@@ -1,16 +1,17 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { USER_ROLES, RoleType } from '../constants/roles';
 
-export type UserRole = 'USER' | 'HR' | 'ADMIN';
 export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
 
 export interface IUser extends Document {
+  username?: string;
   email?: string;
   phone?: string;
   password?: string;
   firstName: string;
   lastName?: string;
-  role: UserRole;
+  role: RoleType;
   provider: 'local' | 'google' | 'facebook';
   isVerified: boolean;
   isActive: boolean;
@@ -27,7 +28,7 @@ export interface IUser extends Document {
   packageTier?: string;
   packageActiveUntil?: Date;
 
-  // Survey fields
+  // Survey / profile fields
   skills?: string[];
   experienceYears?: string;
   preferredLocationCity?: string;
@@ -36,21 +37,18 @@ export interface IUser extends Document {
   createdAt: Date;
   updatedAt: Date;
 
-  comparePassword(candidatePassword: string): Promise<boolean>;
+  comparePassword(_candidatePassword: string): Promise<boolean>;
 }
-
-const ROLE_VALUES: UserRole[] = ['USER', 'HR', 'ADMIN'];
-const STATUS_VALUES: UserStatus[] = ['ACTIVE', 'SUSPENDED', 'DELETED'];
-
-const toUserRole = (value: unknown): UserRole => {
-  const upper = String(value || 'USER').toUpperCase();
-  if (upper === 'HR') return 'HR';
-  if (upper === 'ADMIN') return 'ADMIN';
-  return 'USER';
-};
 
 const userSchema = new Schema<IUser>(
   {
+    username: {
+      type: String,
+      sparse: true,
+      unique: true,
+      trim: true,
+      lowercase: true,
+    },
     email: {
       type: String,
       sparse: true,
@@ -66,8 +64,8 @@ const userSchema = new Schema<IUser>(
     },
     password: {
       type: String,
-      required: function () {
-        return (this as any).provider === 'local';
+      required(this: any) {
+        return this.provider === 'local';
       },
       minlength: 6,
       select: false,
@@ -80,17 +78,16 @@ const userSchema = new Schema<IUser>(
     },
     lastName: {
       type: String,
-      required: function () {
-        return (this as any).provider === 'local';
+      required(this: any) {
+        return this.provider === 'local';
       },
       trim: true,
       set: (val: string) => (val ? val.normalize('NFC') : val),
     },
     role: {
       type: String,
-      enum: ROLE_VALUES,
-      default: 'USER',
-      set: toUserRole,
+      enum: Object.values(USER_ROLES),
+      default: USER_ROLES.USER,
       index: true,
     },
     provider: {
@@ -108,7 +105,7 @@ const userSchema = new Schema<IUser>(
     },
     status: {
       type: String,
-      enum: STATUS_VALUES,
+      enum: ['ACTIVE', 'SUSPENDED', 'DELETED'],
       default: 'ACTIVE',
       index: true,
     },
@@ -132,6 +129,13 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
+    packageTier: {
+      type: String,
+      trim: true,
+    },
+    packageActiveUntil: {
+      type: Date,
+    },
     skills: [{ type: String }],
     experienceYears: {
       type: String,
@@ -148,14 +152,16 @@ const userSchema = new Schema<IUser>(
   },
 );
 
+// Require at least one of email, phone, or username
 userSchema.pre('validate', function (next) {
-  if (!this.email && !this.phone) {
-    next(new Error('At least an email or phone must be provided.'));
+  if (!this.email && !this.phone && !this.username) {
+    next(new Error('At least an email, phone, or username must be provided.'));
     return;
   }
   next();
 });
 
+// Hash password before saving
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password') || !this.password) {
     next();
@@ -171,14 +177,24 @@ userSchema.pre('save', async function (next) {
   }
 });
 
+// Keep status in sync with isActive
 userSchema.pre('save', function (next) {
-  this.status = this.isActive ? 'ACTIVE' : this.status === 'DELETED' ? 'DELETED' : 'SUSPENDED';
+  if (!this.isModified('isActive') && !this.isModified('status')) {
+    next();
+    return;
+  }
+
+  if (!this.isActive) {
+    this.status = this.status === 'DELETED' ? 'DELETED' : 'SUSPENDED';
+  } else if (this.status !== 'DELETED') {
+    this.status = 'ACTIVE';
+  }
   next();
 });
 
-userSchema.methods.comparePassword = async function (passwordCandidate: string): Promise<boolean> {
+userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   if (!this.password) return false;
-  return bcrypt.compare(passwordCandidate, this.password);
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 export const User = mongoose.models.User || mongoose.model<IUser>('User', userSchema);

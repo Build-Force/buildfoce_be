@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { RequestHandler, Router, Request, Response } from 'express';
 import { body } from 'express-validator';
 import * as blogController from '../controllers/blogController';
 import { authenticateToken } from '../middlewares/auth';
@@ -14,7 +14,7 @@ router.get('/:slug', blogController.getBlogBySlug);
 // Media upload routes
 router.post(
     '/upload/image',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     uploadBlogImage.single('image'),
     handleUploadError,
     (req: Request, res: Response) => {
@@ -30,7 +30,7 @@ router.post(
 
 router.post(
     '/upload/video',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     uploadBlogVideo.single('video'),
     handleUploadError,
     (req: Request, res: Response) => {
@@ -47,35 +47,35 @@ router.post(
 // Protected routes
 router.post(
     '/',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     validate([
         body('title').trim().notEmpty().withMessage('Tiêu đề không được để trống'),
         body('content').notEmpty().withMessage('Nội dung không được để trống'),
         body('media.featuredImage').notEmpty().withMessage('Ảnh đại diện là bắt buộc'),
     ]),
-    blogController.createBlog
+    blogController.createBlog as RequestHandler
 );
 
-router.patch('/:id', authenticateToken, blogController.updateBlog);
-router.delete('/:id', authenticateToken, blogController.deleteBlog);
-router.post('/:id/like', authenticateToken, blogController.likeBlog);
+router.patch('/:id', authenticateToken as RequestHandler, blogController.updateBlog as RequestHandler);
+router.delete('/:id', authenticateToken as RequestHandler, blogController.deleteBlog as RequestHandler);
+router.post('/:id/like', authenticateToken as RequestHandler, blogController.likeBlog as RequestHandler);
 
 router.post(
     '/:id/comment',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung bình luận không được để trống'),
     ]),
-    blogController.commentBlog
+    blogController.commentBlog as RequestHandler
 );
 
 router.post(
     '/:id/comment/:commentId/reply',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung phản hồi không được để trống'),
     ]),
-    blogController.replyComment
+    blogController.replyComment as RequestHandler
 );
 
 router.patch(
@@ -84,10 +84,10 @@ router.patch(
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung bình luận không được để trống'),
     ]),
-    blogController.updateComment
+    blogController.updateComment as RequestHandler
 );
 
-router.delete('/:id/comment/:commentId', authenticateToken, blogController.deleteComment);
+router.delete('/:id/comment/:commentId', authenticateToken as RequestHandler, blogController.deleteComment as RequestHandler);
 
 router.patch(
     '/:id/comment/:commentId/reply/:replyId',
@@ -95,21 +95,21 @@ router.patch(
     validate([
         body('content').trim().notEmpty().withMessage('Nội dung phản hồi không được để trống'),
     ]),
-    blogController.updateReply
+    blogController.updateReply as RequestHandler
 );
 
-router.delete('/:id/comment/:commentId/reply/:replyId', authenticateToken, blogController.deleteReply);
+router.delete('/:id/comment/:commentId/reply/:replyId', authenticateToken as RequestHandler, blogController.deleteReply as RequestHandler);
 
 
 // Admin routes
-router.patch('/:id/approve', authenticateToken, blogController.approveBlog);
+router.patch('/:id/approve', authenticateToken as RequestHandler, blogController.approveBlog as RequestHandler);
 router.patch(
     '/:id/reject',
-    authenticateToken,
+    authenticateToken as RequestHandler,
     validate([
         body('reason').trim().notEmpty().withMessage('Lý do từ chối không được để trống'),
     ]),
-    blogController.rejectBlog
+    blogController.rejectBlog as RequestHandler
 );
 
 export default {

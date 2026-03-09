@@ -1,8 +1,7 @@
-import { Response } from 'express';
-import { AuthRequest } from '../middlewares/auth';
+import { Request, Response } from 'express';
 import { User } from '../models/User';
 
-export const activateHrPackage = async (req: AuthRequest, res: Response): Promise<void> => {
+export const activateHrPackage = async (req: Request, res: Response): Promise<void> => {
     try {
         const { userId } = req.params as any;
         const { tier, activeUntil } = req.body as any;
