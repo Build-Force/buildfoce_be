@@ -14,6 +14,7 @@ import {
     submitJobForApproval,
 } from '../controllers/jobController';
 import { applyToJob, listApplicantsForJob, updateApplicantStatus, confirmHire, confirmComplete } from '../controllers/applyController';
+import { getApplicantCv } from '../controllers/cvController';
 
 const router = Router();
 
@@ -83,6 +84,7 @@ router.put(
 // Apply workflow
 router.post('/:jobId/apply', authMiddleware as RequestHandler, requirePermission('apply:job') as RequestHandler, applyToJob as RequestHandler);
 router.get('/:jobId/applicants', authMiddleware as RequestHandler, requirePermission('manage:candidates') as RequestHandler, listApplicantsForJob as RequestHandler);
+router.get('/:jobId/applicants/:applicationId/cv', authMiddleware as RequestHandler, requirePermission('manage:candidates') as RequestHandler, getApplicantCv as RequestHandler);
 router.put(
     '/:jobId/applicants/:applicationId',
     authMiddleware as RequestHandler,

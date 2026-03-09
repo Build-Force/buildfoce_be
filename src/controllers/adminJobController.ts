@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/auth';
 import { Job } from '../models/Job';
+import { sendJobApprovedEmail, sendJobRejectedEmail } from '../utils/email';
 
 const getAuthUserId = (req: Request): string => {
     const user = (req as AuthRequest).user;
@@ -33,7 +34,7 @@ export const approveJob = async (req: Request, res: Response): Promise<void> => 
         const adminId = getAuthUserId(req);
         const { jobId } = req.params as any;
 
-        const job = await Job.findById(jobId);
+        const job = await Job.findById(jobId).populate('hrId');
         if (!job) {
             res.status(404).json({ success: false, message: 'Job not found.' });
             return;
@@ -51,6 +52,11 @@ export const approveJob = async (req: Request, res: Response): Promise<void> => 
         };
         await job.save();
 
+        const hrEmail = (job.hrId as any)?.email;
+        if (hrEmail) {
+            await sendJobApprovedEmail(hrEmail, job.title, process.env.FRONTEND_URL);
+        }
+
         res.json({ success: true, data: job });
     } catch (error) {
         console.error('Approve job error:', error);
@@ -64,7 +70,7 @@ export const rejectJob = async (req: Request, res: Response): Promise<void> => {
         const { jobId } = req.params as any;
         const { reason } = req.body as any;
 
-        const job = await Job.findById(jobId);
+        const job = await Job.findById(jobId).populate('hrId');
         if (!job) {
             res.status(404).json({ success: false, message: 'Job not found.' });
             return;
@@ -82,6 +88,11 @@ export const rejectJob = async (req: Request, res: Response): Promise<void> => {
             reason: typeof reason === 'string' ? reason.trim() : undefined,
         };
         await job.save();
+
+        const hrEmail = (job.hrId as any)?.email;
+        if (hrEmail) {
+            await sendJobRejectedEmail(hrEmail, job.title, job.adminReview.reason || 'Không rõ lý do');
+        }
 
         res.json({ success: true, data: job });
     } catch (error) {
