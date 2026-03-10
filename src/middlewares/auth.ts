@@ -52,7 +52,7 @@ const attachUserFromToken = (req: AuthRequest, decoded: JwtPayload): boolean => 
   return true;
 };
 
-export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
+export const verifyToken = (req: Request, res: Response, next: NextFunction): void => {
   const token = parseToken(req);
 
   if (!token) {
@@ -63,7 +63,7 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
 
-    if (!attachUserFromToken(req, decoded)) {
+    if (!attachUserFromToken(req as AuthRequest, decoded)) {
       error(res, 'Token không hợp lệ', 401);
       return;
     }
@@ -77,7 +77,7 @@ export const verifyToken = (req: AuthRequest, res: Response, next: NextFunction)
 export const authMiddleware = verifyToken;
 export const authenticateToken = verifyToken;
 
-export const optionalAuthMiddleware = (req: AuthRequest, _res: Response, next: NextFunction): void => {
+export const optionalAuthMiddleware = (req: Request, _res: Response, next: NextFunction): void => {
   const token = parseToken(req);
 
         if (!token) {
@@ -87,7 +87,7 @@ export const optionalAuthMiddleware = (req: AuthRequest, _res: Response, next: N
 
   try {
     const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
-    attachUserFromToken(req, decoded);
+    attachUserFromToken(req as AuthRequest, decoded);
   } catch {
     // ignore invalid token for optional auth
         }
@@ -96,13 +96,14 @@ export const optionalAuthMiddleware = (req: AuthRequest, _res: Response, next: N
 };
 
 export const requirePermission = (permission: Permission) => {
-    return (req: AuthRequest, res: Response, next: NextFunction): void => {
-        if (!req.user) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const authReq = req as AuthRequest;
+    if (!authReq.user) {
       error(res, 'Chưa xác thực người dùng', 401);
             return;
         }
 
-    const roleType = toRoleType(req.user.role);
+    const roleType = toRoleType(authReq.user.role);
     if (!hasPermission(roleType, permission)) {
       error(res, `Bạn không có quyền '${permission}'`, 403);
             return;

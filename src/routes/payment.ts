@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import {
   getPackages,
   getMyPackage,
@@ -15,15 +15,15 @@ const router = Router();
 
 router.get(PAYMENTS_PATHS.PACKAGES, getPackages);
 
-router.get(PAYMENTS_PATHS.MY_PACKAGE, authMiddleware, getMyPackage);
+router.get(PAYMENTS_PATHS.MY_PACKAGE, authMiddleware as RequestHandler, getMyPackage as RequestHandler);
 
-router.post(PAYMENTS_PATHS.CREATE, authMiddleware, createPayment);
+router.post(PAYMENTS_PATHS.CREATE, authMiddleware as RequestHandler, createPayment as RequestHandler);
 
-router.post(PAYMENTS_PATHS.CONFIRM, authMiddleware, confirmPayment);
+router.post(PAYMENTS_PATHS.CONFIRM, authMiddleware as RequestHandler, confirmPayment as RequestHandler);
 
-router.get(PAYMENTS_PATHS.HISTORY, authMiddleware, getPaymentHistory);
+router.get(PAYMENTS_PATHS.HISTORY, authMiddleware as RequestHandler, getPaymentHistory as RequestHandler);
 
-router.get(PAYMENTS_PATHS.SESSION, authMiddleware, getPaymentSessionStatus);
+router.get(PAYMENTS_PATHS.SESSION, authMiddleware as RequestHandler, getPaymentSessionStatus as RequestHandler);
 
 router.post(PAYMENTS_PATHS.SEED, seedDefaultPackages);
 

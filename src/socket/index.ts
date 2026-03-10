@@ -24,7 +24,7 @@ export const initializeSocket = (httpServer: HttpServer): SocketServer => {
 
         try {
             const decoded: any = jwt.verify(token, env.JWT_SECRET);
-            socket.userId = decoded._id;
+            socket.userId = decoded.userId || decoded._id;
             next();
         } catch {
             next(new Error('Invalid token'));
@@ -58,6 +58,15 @@ export const initializeSocket = (httpServer: HttpServer): SocketServer => {
                 conversationId: data.conversationId,
                 userId,
             });
+        });
+
+        // Blog: Viewers join a specific blog room to get real-time interaction updates
+        socket.on('join_blog_room', (blogId: string) => {
+            socket.join(`blog:${blogId}`);
+        });
+
+        socket.on('leave_blog_room', (blogId: string) => {
+            socket.leave(`blog:${blogId}`);
         });
 
         // Blog: Admin joins admin room for real-time notifications

@@ -68,12 +68,20 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
         const verifyToken = jwt.sign(payload, TEMP_TOKEN_SECRET, { expiresIn: '24h' });
 
-        // Verification link points to FE page that will call BE verify endpoint
-        const verifyUrl = `${env.FRONTEND_URL}/auth/verify-link-email?token=${verifyToken}`;
+        // Verification link must use production URL in production (never localhost)
+        const frontendBase = env.FRONTEND_URL || process.env.FRONTEND_URL || '';
+        if (process.env.NODE_ENV === 'production' && (!frontendBase || frontendBase.includes('localhost'))) {
+            console.error('❌ FRONTEND_URL is missing or localhost in production. Set FRONTEND_URL to your production domain (e.g. https://yourdomain.com) in .env or server environment.');
+            res.status(500).json({ success: false, message: 'Server configuration error. Please contact support.' });
+            return;
+        }
+        const verifyUrl = `${frontendBase || 'http://localhost:3000'}/auth/verify-link-email?token=${verifyToken}`;
 
         try {
             await sendVerifyLinkEmail(email, verifyUrl);
         } catch (emailError: any) {
+            const rawMessage = emailError?.response?.body?.errors?.[0]?.message || emailError?.message || '';
+            const isQuotaError = /maximum credits exceeded|quota|limit exceeded/i.test(String(rawMessage));
             // Log detailed SendGrid errors for debugging
             console.error('❌ Failed to send verify link email:', emailError?.message);
             if (emailError?.response?.body) {
@@ -81,8 +89,10 @@ export const register = async (req: Request, res: Response): Promise<void> => {
             }
             res.status(500).json({
                 success: false,
-                message: 'Failed to send verification email. Please try again later.',
-                emailError: emailError?.response?.body?.errors?.[0]?.message || emailError?.message
+                message: isQuotaError
+                    ? 'Dịch vụ gửi email tạm thời không khả dụng (đã hết hạn mức). Vui lòng thử lại sau hoặc liên hệ quản trị viên.'
+                    : 'Failed to send verification email. Please try again later.',
+                emailError: rawMessage
             });
             return;
         }
@@ -90,7 +100,6 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         res.json({
             success: true,
             message: 'A verification link has been sent to your email. Please check your inbox to activate your account.',
-            devVerifyUrl: verifyUrl
         });
     } catch (err) {
         console.error('❌ Registration error:', err);
@@ -526,7 +535,13 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        const { firstName, lastName, phone, companyName, taxCode } = req.body;
+        const existingUser = await User.findById(userId).select('provider role');
+        if (!existingUser) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+
+        const { firstName, lastName, phone, companyName, taxCode, role } = req.body;
 
         // Build update object — only allow safe fields
         const updateData: any = {};
@@ -535,6 +550,14 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         if (phone !== undefined) updateData.phone = phone.trim() || null;
         if (companyName !== undefined) updateData.companyName = companyName.trim();
         if (taxCode !== undefined) updateData.taxCode = taxCode.trim();
+        // Cho phép user đăng ký bằng Google đổi role lần đầu (user <-> hr)
+        if (role !== undefined && existingUser.provider === 'google' && (role === 'user' || role === 'hr')) {
+            updateData.role = role;
+            if (role === 'hr' && (companyName === undefined || !companyName?.trim())) {
+                updateData.companyName = updateData.companyName || 'Công ty của tôi';
+                updateData.taxCode = updateData.taxCode || '000000000';
+            }
+        }
 
         // Validate firstName is not empty
         if (updateData.firstName !== undefined && !updateData.firstName) {
@@ -571,6 +594,114 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
     } catch (err: any) {
         console.error('Update profile error:', err);
         res.status(500).json({ success: false, message: 'Failed to update profile', error: err.message });
+    }
+};
+
+// ====================== GOOGLE OAUTH ======================
+const getFrontendUrl = () => env.FRONTEND_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
+
+export const googleCallback = (req: Request, res: Response): void => {
+    try {
+        const user = (req as any).user as any;
+        const frontendUrl = getFrontendUrl();
+
+        if (user?.verificationRequired) {
+            res.redirect(`${frontendUrl}/auth/google-verification-required?email=${encodeURIComponent(user.email)}`);
+            return;
+        }
+        if (!user) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=authentication_failed`);
+            return;
+        }
+
+        const payload = {
+            userId: user._id,
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+        };
+        const token = generateToken(payload);
+        const newUserParam = user.isNewUser ? '&newUser=1' : '';
+        res.redirect(`${frontendUrl}/auth/social-callback?token=${token}${newUserParam}`);
+    } catch (err: any) {
+        console.error('❌ Google login error:', err);
+        const frontendUrl = getFrontendUrl();
+        res.redirect(`${frontendUrl}/auth/social-callback?error=server_error`);
+    }
+};
+
+export const verifyGoogleEmail = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const token = (req.query.token as string) || '';
+        const frontendUrl = getFrontendUrl();
+        if (!token) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=missing_token`);
+            return;
+        }
+        let decoded: any;
+        try {
+            decoded = jwt.verify(token, TEMP_TOKEN_SECRET);
+        } catch {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=invalid_token`);
+            return;
+        }
+        const { email, firstName, lastName, provider, userId } = decoded;
+        if (!email) {
+            res.redirect(`${frontendUrl}/auth/social-callback?error=invalid_token`);
+            return;
+        }
+
+        let user: any;
+        if (userId) {
+            user = await User.findById(userId);
+            if (!user) {
+                res.redirect(`${frontendUrl}/auth/social-callback?error=user_not_found`);
+                return;
+            }
+            user.firstName = firstName ?? user.firstName;
+            user.lastName = lastName ?? user.lastName;
+            user.isVerified = true;
+            user.provider = provider || 'google';
+            await user.save();
+        } else {
+            const existing = await User.findOne({ email });
+            if (existing) {
+                existing.firstName = firstName ?? existing.firstName;
+                existing.lastName = lastName ?? existing.lastName;
+                existing.isVerified = true;
+                (existing as any).provider = provider || 'google';
+                await existing.save();
+                user = existing;
+            } else {
+                user = await User.create({
+                    email,
+                    firstName: firstName || 'User',
+                    lastName: lastName || '',
+                    provider: 'google',
+                    isVerified: true,
+                    role: 'user',
+                });
+            }
+        }
+
+        const loginPayload = {
+            userId: user._id,
+            username: user.username,
+            email: user.email,
+            phone: user.phone,
+            role: user.role,
+            firstName: user.firstName,
+            lastName: user.lastName,
+        };
+        const loginToken = generateToken(loginPayload);
+        res.redirect(`${frontendUrl}/auth/google-verification-success?token=${loginToken}&email=${encodeURIComponent(email)}`);
+    } catch (err: any) {
+        console.error('❌ Verify Google email error:', err);
+        const frontendUrl = getFrontendUrl();
+        res.redirect(`${frontendUrl}/auth/social-callback?error=verification_failed`);
     }
 };
 

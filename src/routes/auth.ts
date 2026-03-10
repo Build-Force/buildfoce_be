@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import { body } from 'express-validator';
 import {
     register,
@@ -11,12 +11,15 @@ import {
     verifyEmailByLink,
     checkVerificationStatus,
     changePassword,
-    uploadUserAvatar
+    uploadUserAvatar,
+    googleCallback,
+    verifyGoogleEmail
 } from '../controllers/authController';
 import { validate } from '../middlewares/validation';
 import { authMiddleware } from '../middlewares/auth';
 import { uploadAvatar, handleUploadError } from '../middlewares/upload';
 import { AUTH_PATHS } from '../constants/paths';
+import passport from '../config/passport';
 
 const router = Router();
 
@@ -74,23 +77,28 @@ router.get(AUTH_PATHS.VERIFY_LINK_EMAIL, verifyEmailByLink);
 router.post(AUTH_PATHS.VERIFY_LINK_EMAIL, verifyEmailByLink);
 router.post(AUTH_PATHS.CHECK_VERIFICATION, checkVerificationStatus);
 
+// Google OAuth
+router.get(AUTH_PATHS.GOOGLE, passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get(AUTH_PATHS.GOOGLE_CALLBACK, passport.authenticate('google', { session: false }), googleCallback);
+router.get(AUTH_PATHS.VERIFY_GOOGLE_EMAIL, verifyGoogleEmail);
+
 // Forgot Password Flow
 router.post(AUTH_PATHS.FORGOT_PASSWORD, validate(forgotPasswordValidation), forgotPassword);
 router.post(AUTH_PATHS.VERIFY_RESET_OTP, validate(verifyResetOtpValidation), verifyResetOtp);
 router.post(AUTH_PATHS.RESET_PASSWORD, validate(resetPasswordValidation), resetPassword);
 
 // Profile
-router.get('/profile', authMiddleware, getProfile);
-router.put('/profile', authMiddleware, updateProfile);
+router.get('/profile', authMiddleware as RequestHandler, getProfile);
+router.put('/profile', authMiddleware as RequestHandler, updateProfile);
 
 // Change Password (requires auth)
-router.put(AUTH_PATHS.CHANGE_PASSWORD, authMiddleware, [
+router.put(AUTH_PATHS.CHANGE_PASSWORD, authMiddleware as RequestHandler, [
     body('oldPassword').notEmpty().withMessage('Old password is required'),
     body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
 ], validate([]), changePassword);
 
 // Upload Avatar (requires auth + multer Cloudinary middleware)
-router.post('/upload-avatar', authMiddleware, uploadAvatar.single('avatar'), handleUploadError, uploadUserAvatar);
+router.post('/upload-avatar', authMiddleware as RequestHandler, uploadAvatar.single('avatar'), handleUploadError, uploadUserAvatar);
 
 export default {
     router,
