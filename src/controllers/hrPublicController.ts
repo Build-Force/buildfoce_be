@@ -47,7 +47,7 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
         const hrIdObj = new mongoose.Types.ObjectId(id);
 
         const user = await User.findOne({ _id: hrIdObj, role: 'hr' })
-            .select('firstName lastName companyName avatar profileDocumentImage email phone address createdAt isVerified isVerifiedPhone isVerifiedCccd')
+            .select('firstName lastName companyName avatar profileDocumentImages email phone address createdAt isVerified isVerifiedPhone isVerifiedCccd portfolios')
             .lean() as any;
 
         if (!user) {
@@ -90,19 +90,20 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
 
         // Historical Projects (Completed or Ongoing but not currently hiring)
         const historicalProjects = await Job.find({ hrId: hrIdObj, status: { $in: ['COMPLETED', 'CLOSED', 'FILLED'] } })
-            .select('title metadata.location.province metadata.location.district status createdAt endDate applicationsCount')
-            .limit(5).lean() as any[];
+            .select('title location status createdAt endDate workersHired workersNeeded images')
+            .limit(20).lean() as any[];
 
         const mappedProjects = historicalProjects.map(p => ({
             id: p._id,
             name: p.title,
-            district: p.metadata?.location?.district || "Huyện/Quận",
-            city: p.metadata?.location?.province || "Tỉnh/TP",
+            district: p.location?.city || p.location?.address || "Trung tâm",
+            city: p.location?.province || "Việt Nam",
             startDate: new Date(p.createdAt).toLocaleDateString('vi-VN'),
             endDate: p.endDate ? new Date(p.endDate).toLocaleDateString('vi-VN') : "Chưa rõ",
             status: p.status === 'COMPLETED' ? 'completed' : p.status === 'CLOSED' ? 'cancelled' : 'ongoing',
-            workerTypes: [{ type: "Lao động", count: p.applicationsCount || 0 }], 
-            paymentStatus: 'on_time', 
+            workerTypes: [{ type: "Lao động", count: p.workersHired || p.workersNeeded || 0 }],
+            paymentStatus: 'on_time',
+            image: p.images?.[0] || null,
         }));
 
         // Generate 12 months array for payment history padding securely without hardcoding just strings
@@ -120,6 +121,17 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
             }
         });
 
+        // Also check for jobs completed in recent months (by createdAt if no endDate)
+        historicalProjects.forEach(proj => {
+            if (proj.status === 'COMPLETED' && !proj.endDate && proj.createdAt) {
+                const projMonth = new Date(proj.createdAt).getMonth();
+                const diff = currentMonth >= projMonth ? currentMonth - projMonth : 12 - (projMonth - currentMonth);
+                if (diff >= 0 && diff < 12) {
+                    if (paymentHistory[11 - diff] === 'no_data') paymentHistory[11 - diff] = "on_time";
+                }
+            }
+        });
+
         res.json({
             success: true,
             data: {
@@ -128,7 +140,7 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
                     ? user.companyName
                     : `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Nhà tuyển dụng',
                 logo: user.avatar,
-                profileDocumentImage: user.profileDocumentImage,
+                profileDocumentImages: user.profileDocumentImages || [],
                 initials: user.companyName ? user.companyName.substring(0, 2).toUpperCase() : 'HR',
                 verified: user.isVerified || false,
                 verifiedMST: user.isVerified,
@@ -137,12 +149,21 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
                 location: (user as any).address || hrProfile?.companyAddress || "Chưa cập nhật",
                 industryType: hrProfile?.industry || "Tuyển dụng",
                 description: hrProfile?.description || "Chưa cập nhật mô tả.",
+                portfolios: (user.portfolios && user.portfolios.length > 0)
+                    ? user.portfolios
+                    : historicalProjects.map((p: any) => ({
+                        title: p.title,
+                        description: `${p.location?.province || 'Việt Nam'} — ${p.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã thực hiện'}`,
+                        image: (p.images && p.images.length > 0) ? p.images[0] : 'https://images.unsplash.com/photo-1541888946425-d81bb19480c5?q=80&w=800',
+                    })),
+
+
                 stats: {
                     totalProjects,
                     completedProjects,
                     cancelledProjects,
                     ongoingProjects,
-                    totalWorkers: historicalProjects.reduce((acc, p) => acc + (p.applicationsCount || 0), 0),
+                    totalWorkers: historicalProjects.reduce((acc, p) => acc + (p.workersHired || p.workersNeeded || 0), 0),
                     completionRate: totalProjects > 0 ? Math.round((completedProjects / totalProjects) * 100) : 100,
                     avgRating: Math.round(avgRating * 10) / 10,
                     totalReviews,

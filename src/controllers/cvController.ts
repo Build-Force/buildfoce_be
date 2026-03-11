@@ -131,27 +131,61 @@ export const getPublicProfile = async (req: AuthRequest, res: Response): Promise
   try {
     const { id } = req.params;
 
-    const user = await User.findById(id).select('firstName lastName avatar skills experienceYears preferredLocationCity expectedSalary bio phone email role').lean();
+    const user = await User.findById(id).select('firstName lastName avatar skills experienceYears preferredLocationCity expectedSalary bio phone email role portfolios profileDocumentImages').lean();
 
     if (!user) {
       res.status(404).json({ success: false, message: 'User not found.' });
       return;
     }
 
-    // Only allow public viewing of WORKER profiles through this endpoint for now
-    // HR profiles should go through hrPublicController
-    if ((user as any).role !== 'user' && (user as any).role !== 'USER') {
-      res.json({ success: true, data: { user } });
-      return;
-    }
-
     const cv = await WorkerCV.findOne({ userId: id }).select('content').lean() as { content?: any } | null;
+
+    // Lấy danh sách công trình đã hoàn thành (chỉ cho worker/user)
+    let completedProjects: any[] = [];
+    if ((user as any).role === 'user' || (user as any).role === 'worker') {
+      const completedApps = await JobApplication.find({ workerId: id, status: 'COMPLETED' })
+        .populate({
+          path: 'jobId',
+          select: 'title description images location salary skills startDate endDate hrId',
+          populate: {
+            path: 'hrId',
+            select: 'firstName lastName companyName avatar',
+          },
+        })
+        .sort({ updatedAt: -1 })
+        .limit(20)
+        .lean();
+
+      completedProjects = completedApps
+        .filter((app: any) => app.jobId)
+        .map((app: any) => ({
+          applicationId: app._id,
+          completedAt: app.updatedAt,
+          job: {
+            _id: app.jobId._id,
+            title: app.jobId.title,
+            description: app.jobId.description,
+            images: app.jobId.images || [],
+            location: app.jobId.location,
+            salary: app.jobId.salary,
+            skills: app.jobId.skills || [],
+            startDate: app.jobId.startDate,
+            endDate: app.jobId.endDate,
+            hr: app.jobId.hrId ? {
+              _id: (app.jobId.hrId as any)._id,
+              name: (app.jobId.hrId as any).companyName || `${(app.jobId.hrId as any).firstName || ''} ${(app.jobId.hrId as any).lastName || ''}`.trim(),
+              avatar: (app.jobId.hrId as any).avatar,
+            } : null,
+          },
+        }));
+    }
 
     res.json({
       success: true,
       data: {
         user,
-        cv: cv?.content ?? null
+        cv: cv?.content ?? null,
+        completedProjects,
       },
     });
   } catch (err: any) {
