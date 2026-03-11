@@ -53,6 +53,15 @@ const profileDocStorage = new CloudinaryStorage({
     } as any,
 });
 
+const generalImageStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/general',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'],
+        transformation: [{ width: 1600, quality: 'auto', fetch_format: 'auto' }],
+    } as any,
+});
+
 // Image file filter
 const imageFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
@@ -112,6 +121,12 @@ export const uploadProfileDoc = multer({
     storage: profileDocStorage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     fileFilter: docFileFilter,
+});
+
+export const uploadGeneralImage = multer({
+    storage: generalImageStorage,
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+    fileFilter: imageFileFilter,
 });
 
 // Multer error handler

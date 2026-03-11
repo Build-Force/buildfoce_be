@@ -236,7 +236,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                     isVerified: user.isVerified,
                     isActive: user.isActive,
                     companyName: user.companyName, // if hr
-                    profileDocumentImage: user.profileDocumentImage,
+                    profileDocumentImages: user.profileDocumentImages,
                 },
                 token,
             },
@@ -546,24 +546,80 @@ export const uploadCompanyProfileImage = async (req: Request, res: Response): Pr
 
         const user = await User.findByIdAndUpdate(
             userId,
-            { profileDocumentImage: imageUrl },
+            { $push: { profileDocumentImages: imageUrl } },
             { new: true }
-        ).select('-password');
+        ).select('profileDocumentImages');
 
         if (!user) {
             res.status(404).json({ success: false, message: 'User not found' });
             return;
         }
 
-        console.log(`\u2705 HR profile document image updated for ${userId}: ${imageUrl}`);
+        console.log(`\u2705 HR profile document image added for ${userId}: ${imageUrl}`);
         res.json({
             success: true,
-            message: 'Profile document image updated successfully',
-            data: { profileDocumentImage: imageUrl },
+            message: 'Profile document image added successfully',
+            data: { profileDocumentImages: user.profileDocumentImages },
         });
     } catch (err: any) {
         console.error('Upload profile document image error:', err);
         res.status(500).json({ success: false, message: 'Failed to upload profile document image', error: err.message });
+    }
+};
+
+// ====================== DELETE COMPANY PROFILE IMAGE ======================
+export const deleteProfileDocumentImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        const { imageUrl } = req.body;
+        if (!imageUrl) {
+            res.status(400).json({ success: false, message: 'imageUrl is required' });
+            return;
+        }
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $pull: { profileDocumentImages: imageUrl } },
+            { new: true }
+        ).select('profileDocumentImages');
+
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+
+        res.json({
+            success: true,
+            message: 'Profile document image removed successfully',
+            data: { profileDocumentImages: user.profileDocumentImages },
+        });
+    } catch (err: any) {
+        console.error('Delete profile document image error:', err);
+        res.status(500).json({ success: false, message: 'Failed to delete profile document image', error: err.message });
+    }
+};
+
+// ====================== UPLOAD GENERAL IMAGE ======================
+export const uploadImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const file = req.file as any;
+        if (!file) {
+            res.status(400).json({ success: false, message: 'No image file provided' });
+            return;
+        }
+        res.json({
+            success: true,
+            message: 'Image uploaded successfully',
+            data: { url: file.path },
+        });
+    } catch (err: any) {
+        console.error('Upload general image error:', err);
+        res.status(500).json({ success: false, message: 'Failed to upload image', error: err.message });
     }
 };
 
@@ -582,7 +638,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        const { firstName, lastName, phone, companyName, taxCode, role } = req.body;
+        const { firstName, lastName, phone, companyName, taxCode, role, portfolios } = req.body;
 
         // Build update object — only allow safe fields
         const updateData: any = {};
@@ -591,6 +647,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         if (phone !== undefined) updateData.phone = phone.trim() || null;
         if (companyName !== undefined) updateData.companyName = companyName.trim();
         if (taxCode !== undefined) updateData.taxCode = taxCode.trim();
+        if (portfolios !== undefined) updateData.portfolios = portfolios;
         // Cho phép user đăng ký bằng Google đổi role lần đầu (user <-> hr)
         if (role !== undefined && existingUser.provider === 'google' && (role === 'user' || role === 'hr')) {
             updateData.role = role;

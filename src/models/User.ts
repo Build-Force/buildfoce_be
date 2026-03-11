@@ -25,7 +25,12 @@ export interface IUser extends Document {
   // HR fields
   companyName?: string;
   taxCode?: string;
-  profileDocumentImage?: string;
+  profileDocumentImages?: string[];
+  portfolios?: Array<{
+    title?: string;
+    description?: string;
+    image?: string;
+  }>;
   packageTier?: string;
   packageActiveUntil?: Date;
 
@@ -132,10 +137,14 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
-    profileDocumentImage: {
-      type: String,
-      trim: true,
-    },
+    profileDocumentImages: [{ type: String, trim: true }],
+    portfolios: [
+      {
+        title: { type: String, trim: true },
+        description: { type: String, trim: true },
+        image: { type: String, trim: true },
+      },
+    ],
     packageTier: {
       type: String,
       trim: true,
