@@ -3,10 +3,11 @@ import { authMiddleware, requirePermission } from '../middlewares/auth';
 import { listHrJobs } from '../controllers/jobController';
 import { listHiredWorkers } from '../controllers/applyController';
 import { getHrDashboard } from '../controllers/hrDashboard.controller';
-import { getHrProfileById } from '../controllers/hrPublicController';
+import { getHrProfileById, listPublicContractors } from '../controllers/hrPublicController';
 
 const router = Router();
 
+router.get('/public', listPublicContractors as RequestHandler);
 router.get('/:id/profile', getHrProfileById as RequestHandler);
 
 

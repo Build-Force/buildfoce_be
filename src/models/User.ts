@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { USER_ROLES, RoleType } from '../constants/roles';
 
@@ -25,6 +25,7 @@ export interface IUser extends Document {
   // HR fields
   companyName?: string;
   taxCode?: string;
+  profileDocumentImage?: string;
   packageTier?: string;
   packageActiveUntil?: Date;
 
@@ -36,6 +37,8 @@ export interface IUser extends Document {
 
   createdAt: Date;
   updatedAt: Date;
+
+  savedContractors?: Types.ObjectId[];
 
   comparePassword(_candidatePassword: string): Promise<boolean>;
 }
@@ -129,6 +132,10 @@ const userSchema = new Schema<IUser>(
       type: String,
       trim: true,
     },
+    profileDocumentImage: {
+      type: String,
+      trim: true,
+    },
     packageTier: {
       type: String,
       trim: true,
@@ -146,6 +153,12 @@ const userSchema = new Schema<IUser>(
     expectedSalary: {
       type: String,
     },
+    savedContractors: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
   },
   {
     timestamps: true,

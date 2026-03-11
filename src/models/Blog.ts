@@ -9,6 +9,7 @@ export interface IBlogAuthor {
     id: Types.ObjectId;
     name: string;
     avatar?: string;
+    role: string;
 }
 
 export interface IBlogMedia {
@@ -65,6 +66,7 @@ const commentAuthorSchema = new Schema({
     id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
     avatar: { type: String },
+    role: { type: String, required: true, default: 'user' },
 }, { _id: false });
 
 const commentReplySchema = new Schema({
@@ -102,6 +104,7 @@ const blogSchema = new Schema<IBlog>(
             id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
             name: { type: String, required: true },
             avatar: { type: String },
+            role: { type: String, required: true, default: 'user' },
         },
         media: {
             featuredImage: { type: String, required: true },

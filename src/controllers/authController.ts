@@ -236,6 +236,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
                     isVerified: user.isVerified,
                     isActive: user.isActive,
                     companyName: user.companyName, // if hr
+                    profileDocumentImage: user.profileDocumentImage,
                 },
                 token,
             },
@@ -523,6 +524,46 @@ export const uploadUserAvatar = async (req: Request, res: Response): Promise<voi
     } catch (err: any) {
         console.error('Upload avatar error:', err);
         res.status(500).json({ success: false, message: 'Failed to upload avatar', error: err.message });
+    }
+};
+
+// ====================== UPLOAD COMPANY PROFILE IMAGE ======================
+export const uploadCompanyProfileImage = async (req: Request, res: Response): Promise<void> => {
+    try {
+        const userId = (req as any).user?.userId;
+        if (!userId) {
+            res.status(401).json({ success: false, message: 'Unauthorized' });
+            return;
+        }
+
+        const file = req.file as any;
+        if (!file) {
+            res.status(400).json({ success: false, message: 'No image file provided' });
+            return;
+        }
+
+        const imageUrl: string = file.path;
+
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { profileDocumentImage: imageUrl },
+            { new: true }
+        ).select('-password');
+
+        if (!user) {
+            res.status(404).json({ success: false, message: 'User not found' });
+            return;
+        }
+
+        console.log(`\u2705 HR profile document image updated for ${userId}: ${imageUrl}`);
+        res.json({
+            success: true,
+            message: 'Profile document image updated successfully',
+            data: { profileDocumentImage: imageUrl },
+        });
+    } catch (err: any) {
+        console.error('Upload profile document image error:', err);
+        res.status(500).json({ success: false, message: 'Failed to upload profile document image', error: err.message });
     }
 };
 
