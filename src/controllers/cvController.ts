@@ -125,3 +125,37 @@ export const getApplicantCv = async (req: AuthRequest, res: Response): Promise<v
     res.status(500).json({ success: false, message: 'Failed to load CV.' });
   }
 };
+
+/** GET /api/users/:id/public-profile - Xem hồ sơ công khai của worker */
+export const getPublicProfile = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select('firstName lastName avatar skills experienceYears preferredLocationCity expectedSalary bio phone email role').lean();
+
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found.' });
+      return;
+    }
+
+    // Only allow public viewing of WORKER profiles through this endpoint for now
+    // HR profiles should go through hrPublicController
+    if ((user as any).role !== 'user' && (user as any).role !== 'USER') {
+      res.json({ success: true, data: { user } });
+      return;
+    }
+
+    const cv = await WorkerCV.findOne({ userId: id }).select('content').lean() as { content?: any } | null;
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        cv: cv?.content ?? null
+      },
+    });
+  } catch (err: any) {
+    console.error('Get public profile error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error.' });
+  }
+};

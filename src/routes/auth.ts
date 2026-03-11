@@ -12,12 +12,13 @@ import {
     checkVerificationStatus,
     changePassword,
     uploadUserAvatar,
+    uploadCompanyProfileImage,
     googleCallback,
     verifyGoogleEmail
 } from '../controllers/authController';
 import { validate } from '../middlewares/validation';
 import { authMiddleware } from '../middlewares/auth';
-import { uploadAvatar, handleUploadError } from '../middlewares/upload';
+import { uploadAvatar, uploadProfileDoc, handleUploadError } from '../middlewares/upload';
 import { AUTH_PATHS } from '../constants/paths';
 import passport from '../config/passport';
 
@@ -99,6 +100,10 @@ router.put(AUTH_PATHS.CHANGE_PASSWORD, authMiddleware as RequestHandler, [
 
 // Upload Avatar (requires auth + multer Cloudinary middleware)
 router.post('/upload-avatar', authMiddleware as RequestHandler, uploadAvatar.single('avatar'), handleUploadError, uploadUserAvatar);
+
+// Upload Company Profile Image (requires auth)
+// HR Profile Document Upload (supports PDF and images)
+router.post('/upload-company-image', authMiddleware as RequestHandler, uploadProfileDoc.single('image'), handleUploadError, uploadCompanyProfileImage);
 
 export default {
     router,

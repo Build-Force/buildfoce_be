@@ -43,12 +43,30 @@ const jobImageStorage = new CloudinaryStorage({
     } as any,
 });
 
+// Profile document storage (HR Profile - image or PDF)
+const profileDocStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/profile_documents',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'webp'],
+        resource_type: 'auto', // Important for PDF
+    } as any,
+});
+
 // Image file filter
 const imageFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
         cb(new Error('Only image files are allowed'));
+    }
+};
+
+const docFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+        cb(null, true);
+    } else {
+        cb(new Error('Only images and PDF files are allowed'));
     }
 };
 
@@ -64,7 +82,7 @@ const videoFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilte
 // Avatar upload middleware
 export const uploadAvatar = multer({
     storage: avatarStorage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
     fileFilter: imageFileFilter,
 });
 
@@ -87,6 +105,13 @@ export const uploadJobImage = multer({
     storage: jobImageStorage,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
     fileFilter: imageFileFilter,
+});
+
+// Profile document upload middleware
+export const uploadProfileDoc = multer({
+    storage: profileDocStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: docFileFilter,
 });
 
 // Multer error handler
