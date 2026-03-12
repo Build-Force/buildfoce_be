@@ -47,7 +47,7 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
         const hrIdObj = new mongoose.Types.ObjectId(id);
 
         const user = await User.findOne({ _id: hrIdObj, role: 'hr' })
-            .select('firstName lastName companyName avatar profileDocumentImages email phone address createdAt isVerified isVerifiedPhone isVerifiedCccd portfolios')
+            .select('firstName lastName companyName avatar profileDocumentImages email phone address createdAt isVerified isVerifiedPhone isVerifiedCccd portfolios experienceYears')
             .lean() as any;
 
         if (!user) {
@@ -148,6 +148,7 @@ export const getHrProfileById = async (req: Request, res: Response): Promise<voi
                 joinedDate: user.createdAt,
                 location: (user as any).address || hrProfile?.companyAddress || "Chưa cập nhật",
                 industryType: hrProfile?.industry || "Tuyển dụng",
+                experienceYears: user.experienceYears,
                 description: hrProfile?.description || "Chưa cập nhật mô tả.",
                 portfolios: (user.portfolios && user.portfolios.length > 0)
                     ? user.portfolios
