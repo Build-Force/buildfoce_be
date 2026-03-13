@@ -638,7 +638,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
             return;
         }
 
-        const { firstName, lastName, phone, companyName, taxCode, role, portfolios } = req.body;
+        const { firstName, lastName, phone, companyName, taxCode, role, portfolios, experienceYears } = req.body;
 
         // Build update object — only allow safe fields
         const updateData: any = {};
@@ -648,6 +648,7 @@ export const updateProfile = async (req: Request, res: Response): Promise<void> 
         if (companyName !== undefined) updateData.companyName = companyName.trim();
         if (taxCode !== undefined) updateData.taxCode = taxCode.trim();
         if (portfolios !== undefined) updateData.portfolios = portfolios;
+        if (experienceYears !== undefined) updateData.experienceYears = experienceYears;
         // Cho phép user đăng ký bằng Google đổi role lần đầu (user <-> hr)
         if (role !== undefined && existingUser.provider === 'google' && (role === 'user' || role === 'hr')) {
             updateData.role = role;

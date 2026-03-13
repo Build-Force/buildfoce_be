@@ -36,7 +36,7 @@ export interface IUser extends Document {
 
   // Survey / profile fields
   skills?: string[];
-  experienceYears?: string;
+  experienceYears?: number;
   preferredLocationCity?: string;
   expectedSalary?: string;
 
@@ -154,7 +154,7 @@ const userSchema = new Schema<IUser>(
     },
     skills: [{ type: String }],
     experienceYears: {
-      type: String,
+      type: Number,
     },
     preferredLocationCity: {
       type: String,
