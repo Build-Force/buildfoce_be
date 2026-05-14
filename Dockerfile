@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:21-alpine
 
 WORKDIR /usr/src/app
 
@@ -10,6 +10,6 @@ COPY . .
 
 ENV NODE_ENV=production
 
-EXPOSE 5000
+EXPOSE 80
 
 CMD ["npm", "start"]
