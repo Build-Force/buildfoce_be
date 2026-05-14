@@ -1,0 +1,22 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin 689916825005.dkr.ecr.us-west-2.amazonaws.com
+
+  build:
+    commands:
+      - docker build -t buildforce-be:latest .
+
+      - docker tag buildforce-be:latest 689916825005.dkr.ecr.us-west-2.amazonaws.com/buildforce-be:latest
+
+  post_build:
+    commands:
+      - docker push 689916825005.dkr.ecr.us-west-2.amazonaws.com/buildforce-be:latest
+
+artifacts:
+  files:
+    - appspec.yml
+    - docker-compose.yml
+    - scripts/**/*
