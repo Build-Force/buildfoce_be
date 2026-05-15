@@ -26,7 +26,7 @@ export const connectDatabase = async (): Promise<void> => {
 
       // DocumentDB TLS
       tls: true,
-      tlsCAFile: '/usr/src/app/certs/global-bundle.pem',
+      tlsCAFile: '/opt/buildforce/global-bundle.pem',
 
       // DocumentDB compatibility
       retryWrites: false,
