@@ -16,9 +16,12 @@ export const connectDatabase = async (): Promise<void> => {
       return;
     }
 
-    const mongooseOptions = {
+    const mongooseOptions: mongoose.ConnectOptions = {
       autoIndex: process.env.NODE_ENV !== 'production',
       serverSelectionTimeoutMS: 5000,
+      tls: true,
+      tlsCAFile: '/usr/src/app/certs/global-bundle.pem',
+      retryWrites: false,
     };
 
     await mongoose.connect(mongoUri, mongooseOptions);
