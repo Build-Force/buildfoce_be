@@ -49,7 +49,7 @@ export const getHrList = async (req: Request, res: Response): Promise<void> => {
 
 export const getHrById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const hr = await HrProfile.findById(req.params.id).populate('userId', '-passwordHash').lean();
+    const hr = await HrProfile.findById(req.params.id).populate('userId', 'firstName lastName email').lean();
 
     if (!hr) {
       error(res, 'Không tìm thấy hồ sơ HR', 404);

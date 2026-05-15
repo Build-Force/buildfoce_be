@@ -8,6 +8,7 @@ import { createServer } from 'http';
 import { connectDatabase } from './src/config/database';
 import { env } from './src/config/env';
 import routes from './src/routes';
+import passport from './src/config/passport';
 import { errorHandler, notFound } from './src/middlewares/errorHandler';
 import { initializeSocket } from './src/socket';
 
@@ -27,6 +28,8 @@ app.use(cors());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+app.use(passport.initialize());
 
 // Set UTF-8 encoding for all responses
 app.use((_req, res, next) => {

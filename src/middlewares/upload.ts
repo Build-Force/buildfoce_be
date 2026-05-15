@@ -33,12 +33,49 @@ const blogVideoStorage = new CloudinaryStorage({
     } as any,
 });
 
+// Job image storage (tin tuyển dụng)
+const jobImageStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/jobs',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'],
+        transformation: [{ width: 1200, quality: 'auto', fetch_format: 'auto' }],
+    } as any,
+});
+
+// Profile document storage (HR Profile - image or PDF)
+const profileDocStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/profile_documents',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'pdf', 'webp'],
+        resource_type: 'auto', // Important for PDF
+    } as any,
+});
+
+const generalImageStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: 'buildforce/general',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif'],
+        transformation: [{ width: 1600, quality: 'auto', fetch_format: 'auto' }],
+    } as any,
+});
+
 // Image file filter
 const imageFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     if (file.mimetype.startsWith('image/')) {
         cb(null, true);
     } else {
         cb(new Error('Only image files are allowed'));
+    }
+};
+
+const docFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+    if (file.mimetype.startsWith('image/') || file.mimetype === 'application/pdf') {
+        cb(null, true);
+    } else {
+        cb(new Error('Only images and PDF files are allowed'));
     }
 };
 
@@ -54,7 +91,7 @@ const videoFileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilte
 // Avatar upload middleware
 export const uploadAvatar = multer({
     storage: avatarStorage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
     fileFilter: imageFileFilter,
 });
 
@@ -70,6 +107,26 @@ export const uploadBlogVideo = multer({
     storage: blogVideoStorage,
     limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
     fileFilter: videoFileFilter,
+});
+
+// Job image upload middleware
+export const uploadJobImage = multer({
+    storage: jobImageStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: imageFileFilter,
+});
+
+// Profile document upload middleware
+export const uploadProfileDoc = multer({
+    storage: profileDocStorage,
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+    fileFilter: docFileFilter,
+});
+
+export const uploadGeneralImage = multer({
+    storage: generalImageStorage,
+    limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+    fileFilter: imageFileFilter,
 });
 
 // Multer error handler

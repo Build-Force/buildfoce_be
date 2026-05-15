@@ -3,9 +3,9 @@ const tsParser = require("@typescript-eslint/parser");
 
 /** @type {import("eslint").Linter.FlatConfig[]} */
 module.exports = [
+  { ignores: ["dist/**", "node_modules/**", "**/*.d.ts"] },
   {
     files: ["**/*.ts", "**/*.js"],
-    ignores: ["dist/**", "node_modules/**"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -17,7 +17,7 @@ module.exports = [
       "@typescript-eslint": eslintPluginTs
     },
     rules: {
-      "no-unused-vars": "warn",
+      "no-unused-vars": ["warn", { argsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }],
       "no-console": "off"
     }
   }

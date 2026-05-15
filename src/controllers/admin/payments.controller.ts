@@ -1,14 +1,17 @@
 import { Request, Response } from 'express';
-import { ADMIN_PAYMENTS_MOCK } from '../../constants';
 import { error, success } from '../../utils/apiResponse';
 
+/**
+ * Trả về dữ liệu thanh toán thật từ DB.
+ * Hiện chưa có model Payment – trả về mảng rỗng; khi có collection payments sẽ query ở đây.
+ */
 export const getPayments = async (_req: Request, res: Response): Promise<void> => {
   try {
     success(res, {
-      data: ADMIN_PAYMENTS_MOCK,
-      total: ADMIN_PAYMENTS_MOCK.length,
+      data: [],
+      total: 0,
       page: 1,
-      limit: ADMIN_PAYMENTS_MOCK.length,
+      limit: 20,
     });
   } catch (e) {
     error(res, 'Không thể tải danh sách thanh toán', 500, e);

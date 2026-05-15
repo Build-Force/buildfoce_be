@@ -34,7 +34,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
     }
 
     const [users, total] = await Promise.all([
-      User.find(query, { passwordHash: 0 }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      User.find(query).select('-password').sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       User.countDocuments(query),
     ]);
 
@@ -46,7 +46,7 @@ export const getUsers = async (req: Request, res: Response): Promise<void> => {
 
 export const getUserById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.params.id, { passwordHash: 0 }).lean();
+    const user = await User.findById(req.params.id).select('-password').lean();
 
     if (!user) {
       error(res, 'Không tìm thấy người dùng', 404);
@@ -68,7 +68,7 @@ export const updateUserStatus = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true, projection: { passwordHash: 0 } }).lean();
+    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true }).select('-password').lean();
 
     if (!user) {
       error(res, 'Không tìm thấy người dùng', 404);

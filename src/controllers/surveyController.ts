@@ -1,11 +1,24 @@
 import { Request, Response } from 'express';
 import { SurveyAnswer } from '../models/SurveyAnswer';
 import { User } from '../models/User';
+import { getMatchedJobsForEmployee } from '../services/matchService';
 
 export const submitSurvey = async (req: Request, res: Response): Promise<void> => {
     try {
         const userId = (req as any).user?.userId;
-        const { primaryTrade, skills, experienceYears, preferredLocation, expectedSalary, availability } = req.body;
+        const body = req.body;
+        // Hỗ trợ cả format cũ (primaryTrade...) và format từ wizard (trade, tradeCustom, experience, location_pref)
+        const primaryTrade = body.primaryTrade ?? (body.trade === 'other' && body.tradeCustom
+            ? String(body.tradeCustom).trim()
+            : body.trade);
+        const skills = body.skills ?? (body.trade && body.trade !== 'other' ? [body.trade] : []);
+        const experienceYears = body.experienceYears ?? body.experience ?? '';
+        const availability = body.availability ?? '';
+        const preferredLocation = body.preferredLocation ?? {
+            city: 'Không xác định',
+            radius: body.location_pref === 'national' ? 999 : body.location_pref === 'regional' ? 50 : 10
+        };
+        const expectedSalary = body.expectedSalary ?? 'Thương lượng';
 
         if (!userId) {
             res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -14,7 +27,7 @@ export const submitSurvey = async (req: Request, res: Response): Promise<void> =
 
         const surveyAnswer = new SurveyAnswer({
             userId,
-            primaryTrade,
+            primaryTrade: primaryTrade || 'general',
             skills,
             experienceYears,
             preferredLocation,
@@ -34,56 +47,41 @@ export const submitSurvey = async (req: Request, res: Response): Promise<void> =
             }
         });
 
-        // Trigger AI matching (Mock response for now)
-        // In a real scenario, this would call an AI service or run a complex query
-        const mockMatchedJobs = [
-            {
-                id: '1',
-                title: 'Senior Electrician',
-                location: 'Đà Nẵng',
-                matchScore: 92,
-                salary: '15M - 20M',
-                company: 'BuildForce Construction'
-            },
-            {
-                id: '2',
-                title: 'Civil Engineer',
-                location: 'Hội An',
-                matchScore: 88,
-                salary: '25M - 35M',
-                company: 'Urban Builders'
-            },
-            {
-                id: '3',
-                title: 'Welding Specialist',
-                location: 'Đà Nẵng',
-                matchScore: 85,
-                salary: '12M - 18M',
-                company: 'Steel Master Co.'
-            },
-            {
-                id: '4',
-                title: 'Construction Foreman',
-                location: 'Tam Kỳ',
-                matchScore: 82,
-                salary: '20M - 30M',
-                company: 'D&N Development'
-            },
-            {
-                id: '5',
-                title: 'Painter',
-                location: 'Đà Nẵng',
-                matchScore: 78,
-                salary: '8M - 12M',
-                company: 'Color Plus'
-            }
-        ];
+        // Auto Match (Tier 1): rule-based matched jobs for this employee
+        const formatSalary = (job: any) => {
+            const s = job?.salary;
+            if (!s?.amount) return 'Thương lượng';
+            const amount = Number(s.amount);
+            const unit = s.unit === 'day' ? 'ngày' : s.unit === 'month' ? 'tháng' : s.unit === 'hour' ? 'giờ' : 'dự án';
+            const pretty = amount >= 1_000_000 ? `${Math.round(amount / 1_000_000)}M` : `${Math.round(amount / 1_000)}k`;
+            return `${pretty}/${unit}`;
+        };
+
+        let matchedJobs: Array<{ id: string; title: string; location: string; matchScore: number; salary: string; company: string }> = [];
+        try {
+            const results = await getMatchedJobsForEmployee(userId);
+            const hr = (job: any) => job?.hrId;
+            matchedJobs = results.map((r) => {
+                const j = r.job as any;
+                const company = hr(j)?.companyName || (hr(j)?.firstName ? `${hr(j).firstName} ${hr(j).lastName || ''}`.trim() : 'Nhà tuyển dụng');
+                return {
+                    id: String(j._id),
+                    title: j.title || '',
+                    location: j.location?.province || j.location?.city || 'Việt Nam',
+                    matchScore: r.matchScore,
+                    salary: formatSalary(j),
+                    company,
+                };
+            });
+        } catch (matchErr) {
+            console.warn('Match service failed, returning empty list:', matchErr);
+        }
 
         res.json({
             success: true,
             message: 'Survey submitted successfully',
             data: {
-                matchedJobs: mockMatchedJobs
+                matchedJobs
             }
         });
     } catch (err: any) {

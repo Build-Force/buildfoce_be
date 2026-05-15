@@ -41,7 +41,7 @@ export const getSupportTickets = async (req: Request, res: Response): Promise<vo
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('userId', '-passwordHash')
+        .populate('userId', 'firstName lastName email')
         .lean(),
       SupportTicket.countDocuments(query),
     ]);
@@ -54,7 +54,7 @@ export const getSupportTickets = async (req: Request, res: Response): Promise<vo
 
 export const getSupportTicketById = async (req: Request, res: Response): Promise<void> => {
   try {
-    const item = await SupportTicket.findById(req.params.id).populate('userId', '-passwordHash').lean();
+    const item = await SupportTicket.findById(req.params.id).populate('userId', 'firstName lastName email').lean();
 
     if (!item) {
       error(res, 'Không tìm thấy ticket hỗ trợ', 404);

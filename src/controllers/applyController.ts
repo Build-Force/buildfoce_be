@@ -3,6 +3,9 @@ import mongoose from 'mongoose';
 import { AuthRequest } from '../middlewares/auth';
 import { Job } from '../models/Job';
 import { JobApplication } from '../models/JobApplication';
+import { Review } from '../models/Review';
+import { User } from '../models/User';
+import { sendApplicationAcceptedEmail, sendApplicationRejectedEmail } from '../utils/email';
 
 const getAuthUserId = (req: AuthRequest): string => {
     const rawId =
@@ -86,10 +89,67 @@ export const listApplicantsForJob = async (req: AuthRequest, res: Response): Pro
             .sort({ appliedAt: -1 })
             .lean();
 
-        res.json({ success: true, data: applications });
+        const applicationIds = applications.map((a) => a._id);
+        const reviewedAppIds = new Set(
+            (await Review.find({ applicationId: { $in: applicationIds }, reviewerId: hrId }).select('applicationId').lean()).map((r) => r.applicationId.toString())
+        );
+        const hrReviews = await Review.find({ applicationId: { $in: applicationIds }, reviewerRole: 'HR' }).select('applicationId rating').lean();
+        const ratingByAppId: Record<string, number> = {};
+        hrReviews.forEach((r: any) => {
+            const num = Number(r.rating);
+            if (!Number.isNaN(num)) ratingByAppId[r.applicationId.toString()] = num;
+        });
+
+        const data = applications.map((app) => ({
+            ...app,
+            hasHrReviewed: reviewedAppIds.has(app._id.toString()),
+            workerRating: ratingByAppId[app._id.toString()] ?? null,
+        }));
+
+        res.json({ success: true, data });
     } catch (error) {
         console.error('List applicants error:', error);
         res.status(500).json({ success: false, message: 'Failed to list applicants.' });
+    }
+};
+
+/** GET /hr/workers - List all hired workers for current HR (status HIRED, COMPLETION_PENDING, COMPLETED) with rating */
+export const listHiredWorkers = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const hrId = getAuthUserId(req);
+        const applications = await JobApplication.find({
+            hrId,
+            status: { $in: ['HIRED', 'COMPLETION_PENDING', 'COMPLETED'] },
+        })
+            .populate('jobId', 'title startDate endDate')
+            .populate('workerId', 'firstName lastName')
+            .sort({ updatedAt: -1 })
+            .lean();
+
+        const applicationIds = applications.map((a) => a._id);
+        const hrReviews = await Review.find({ applicationId: { $in: applicationIds }, reviewerRole: 'HR' }).select('applicationId rating').lean();
+        const ratingByAppId: Record<string, number> = {};
+        hrReviews.forEach((r: any) => {
+            const num = Number(r.rating);
+            if (!Number.isNaN(num)) ratingByAppId[r.applicationId.toString()] = num;
+        });
+
+        const data = applications.map((app: any) => ({
+            id: app._id,
+            jobId: app.jobId?._id,
+            jobTitle: app.jobId?.title || '—',
+            startDate: app.jobId?.startDate,
+            endDate: app.jobId?.endDate,
+            workerId: app.workerId?._id,
+            workerName: app.workerId ? [app.workerId.firstName, app.workerId.lastName].filter(Boolean).join(' ') : '—',
+            status: app.status,
+            rating: ratingByAppId[app._id.toString()] ?? null,
+        }));
+
+        res.json({ success: true, data });
+    } catch (error) {
+        console.error('List hired workers error:', error);
+        res.status(500).json({ success: false, message: 'Failed to list hired workers.' });
     }
 };
 
@@ -133,6 +193,26 @@ export const updateApplicantStatus = async (req: AuthRequest, res: Response): Pr
         }
 
         await application.save();
+
+        const jobTitle = (job as any).title || 'Công việc';
+        const workerUser = await User.findById(application.workerId).select('email').lean() as { email?: string } | null;
+        const workerEmail = workerUser?.email;
+        const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL;
+
+        if (workerEmail) {
+            try {
+                if (action === 'accept') {
+                    await sendApplicationAcceptedEmail(workerEmail, jobTitle, frontendUrl);
+                } else if (action === 'reject') {
+                    await sendApplicationRejectedEmail(workerEmail, jobTitle, application.decisionReason || undefined);
+                }
+            } catch (emailErr) {
+                console.error('Failed to send application status email to worker:', emailErr);
+            }
+        } else {
+            console.warn('[APPLY] Worker has no email; skipping application status notification.');
+        }
+
         res.json({ success: true, data: application });
     } catch (error) {
         console.error('Update applicant status error:', error);

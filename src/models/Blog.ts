@@ -1,5 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
-import slugify from 'slugify';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const slugify = require('slugify') as (s: string, o?: { lower?: boolean; strict?: boolean }) => string;
 
 export type BlogStatus = 'draft' | 'pending' | 'approved' | 'rejected' | 'archived';
 
@@ -7,6 +9,7 @@ export interface IBlogAuthor {
     id: Types.ObjectId;
     name: string;
     avatar?: string;
+    role: string;
 }
 
 export interface IBlogMedia {
@@ -63,6 +66,7 @@ const commentAuthorSchema = new Schema({
     id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
     avatar: { type: String },
+    role: { type: String, required: true, default: 'user' },
 }, { _id: false });
 
 const commentReplySchema = new Schema({
@@ -100,6 +104,7 @@ const blogSchema = new Schema<IBlog>(
             id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
             name: { type: String, required: true },
             avatar: { type: String },
+            role: { type: String, required: true, default: 'user' },
         },
         media: {
             featuredImage: { type: String, required: true },

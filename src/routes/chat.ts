@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { RequestHandler, Router } from 'express';
 import { authMiddleware } from '../middlewares/auth';
 import {
     getConversations,
@@ -10,11 +10,11 @@ import {
 
 const router = Router();
 
-router.get('/', authMiddleware, getConversations);
-router.post('/', authMiddleware, createOrGetConversation);
-router.get('/:conversationId/messages', authMiddleware, getMessages);
-router.post('/:conversationId', authMiddleware, sendMessage);
-router.put('/:conversationId/read', authMiddleware, markAsRead);
+router.get('/', authMiddleware as RequestHandler, getConversations as RequestHandler);
+router.post('/', authMiddleware as RequestHandler, createOrGetConversation as RequestHandler);
+router.get('/:conversationId/messages', authMiddleware as RequestHandler, getMessages as RequestHandler);
+router.post('/:conversationId', authMiddleware as RequestHandler, sendMessage as RequestHandler);
+router.put('/:conversationId/read', authMiddleware as RequestHandler, markAsRead as RequestHandler);
 
 export default {
     router,
