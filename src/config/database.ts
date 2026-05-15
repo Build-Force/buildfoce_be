@@ -18,29 +18,44 @@ export const connectDatabase = async (): Promise<void> => {
 
     const mongooseOptions: mongoose.ConnectOptions = {
       autoIndex: process.env.NODE_ENV !== 'production',
-      serverSelectionTimeoutMS: 5000,
+
+      // tăng timeout
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+
+      // DocumentDB TLS
       tls: true,
       tlsCAFile: '/usr/src/app/certs/global-bundle.pem',
+
+      // DocumentDB compatibility
       retryWrites: false,
+      directConnection: false,
+      family: 4,
     };
 
     await mongoose.connect(mongoUri, mongooseOptions);
-    console.log('✅ Successfully connected to MongoDB database');
 
-    // Job model dùng location dạng { city, province, address } chứ không phải GeoJSON.
-    // Nếu collection jobs có index 2dsphere trên location (từ bản cũ) thì xóa để tránh lỗi insert.
+    console.log('✅ Successfully connected to Amazon DocumentDB');
+
     try {
       const coll = mongoose.connection.db?.collection('jobs');
+
       if (coll) {
         const indexes = await coll.indexes();
-        const geoIdx = indexes.find((i: { key?: Record<string, unknown> }) => i.key && (i.key as any).location === '2dsphere');
-        if (geoIdx && geoIdx.name) {
+
+        const geoIdx = indexes.find(
+          (i: { key?: Record<string, unknown> }) =>
+            i.key && (i.key as any).location === '2dsphere'
+        );
+
+        if (geoIdx?.name) {
           await coll.dropIndex(geoIdx.name);
           console.log('✅ Dropped legacy geo index on jobs.location');
         }
       }
-    } catch (e) {
-      // Ignore (index có thể không tồn tại)
+    } catch {
+      // ignore
     }
 
     mongoose.connection.on('error', (err) => {
@@ -50,11 +65,12 @@ export const connectDatabase = async (): Promise<void> => {
     mongoose.connection.on('disconnected', () => {
       console.warn('⚠️ MongoDB disconnected');
     });
+
   } catch (error) {
     console.error('❌ Failed to connect to database', error);
 
     if (isMongoAuthError(error)) {
-      console.error('👉 MongoDB authentication failed. Please verify MONGODB_URI username/password and whitelist IP in MongoDB Atlas.');
+      console.error('👉 DocumentDB authentication failed. Check username/password.');
     }
 
     const isProd = process.env.NODE_ENV === 'production';
