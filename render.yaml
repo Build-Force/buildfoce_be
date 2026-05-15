@@ -1,0 +1,13 @@
+# Render Blueprint - Backend (Node/Express)
+# Trong Render Dashboard: thêm service từ repo, chọn Root Directory = buildfoce_be
+# hoặc deploy từ thư mục buildfoce_be.
+
+services:
+  - type: web
+    name: buildforce-be
+    runtime: node
+    # Build: cài dependency và compile TypeScript ra dist/
+    buildCommand: npm install && npm run build
+    # Start: chạy file .js đã compile (không dùng .ts)
+    startCommand: npm start
+    # Hoặc: startCommand: node dist/server.js

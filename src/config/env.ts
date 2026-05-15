@@ -1,0 +1,89 @@
+import dotenv from "dotenv";
+import path from "path";
+
+// Determine which .env file to load based on NODE_ENV
+const nodeEnv = process.env.NODE_ENV || "development";
+// Usually in dev we use .env, and .env.production for prod
+const envFile = nodeEnv === "production" ? ".env.production" : ".env";
+
+// Load the appropriate .env file
+dotenv.config({ path: path.resolve(process.cwd(), envFile) });
+
+console.log(`Loading environment from: ${envFile}`);
+
+interface EnvConfig {
+    APP_URL: string;
+    PORT: number;
+    NODE_ENV: string;
+    MONGODB_URI: string;
+    JWT_SECRET: string;
+    JWT_EXPIRES_IN: string;
+    FRONTEND_URL: string;
+    API_URL: string;
+    GOOGLE_CLIENT_ID: string;
+    GOOGLE_CLIENT_SECRET: string;
+    SEPAY_BANK: string;
+    SEPAY_ACC: string;
+    SEPAY_API_KEY: string;
+    // Thêm thông tin thanh toán (PayOS) theo guild.txt
+    PAYOS_CLIENT_ID: string;
+    PAYOS_API_KEY: string;
+    PAYOS_CHECKSUM_KEY: string;
+    GEMINI_API_KEY: string;
+}
+
+const getEnvVar = (key: string, required: boolean = true): string => {
+    const value = process.env[key];
+    if (!value && required) {
+        // Trong môi trường dev có thể linh động cảnh báo thay vì throw error ngay lập tức
+        // để anh em có thể start lên mà chưa cần cài đặt đầy đủ ngay
+        if (nodeEnv !== "production") {
+            console.warn(`⚠️ Warning: Missing environment variable: ${key}`);
+            return "";
+        }
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value || "";
+};
+
+export const env: EnvConfig = {
+    APP_URL: getEnvVar("APP_URL", false),
+    PORT: parseInt(getEnvVar("PORT", false) || "5000", 10),
+    NODE_ENV: nodeEnv,
+    MONGODB_URI: getEnvVar("MONGODB_URI", true) || "mongodb://localhost:27017/buildforce",
+    JWT_SECRET: getEnvVar("JWT_SECRET", false) || "supersecretkey",
+    JWT_EXPIRES_IN: getEnvVar("JWT_EXPIRES_IN", false) || "7d",
+    FRONTEND_URL:
+        nodeEnv === "production"
+            ? (() => {
+                  const url = getEnvVar("FRONTEND_URL", true);
+                  if (!url || url.includes("localhost")) {
+                      throw new Error(
+                          "FRONTEND_URL must be set to your production domain (e.g. https://yourdomain.com) when NODE_ENV=production. Do not use localhost."
+                      );
+                  }
+                  return url;
+              })()
+            : (getEnvVar("FRONTEND_URL", false) || "http://localhost:3000"),
+    API_URL:
+        nodeEnv === "production"
+            ? (() => {
+                  const url = getEnvVar("API_URL", true);
+                  if (!url || url.includes("localhost")) {
+                      throw new Error(
+                          "API_URL must be set to your backend production URL (e.g. https://your-api.onrender.com) when NODE_ENV=production. Do not use localhost."
+                      );
+                  }
+                  return url;
+              })()
+            : (getEnvVar("API_URL", false) || "http://localhost:5000"),
+    GOOGLE_CLIENT_ID: getEnvVar("GOOGLE_CLIENT_ID", false),
+    GOOGLE_CLIENT_SECRET: getEnvVar("GOOGLE_CLIENT_SECRET", false),
+    SEPAY_BANK: getEnvVar("SEPAY_BANK", false) || "MBBank",
+    SEPAY_ACC: getEnvVar("SEPAY_ACC", false) || "0949064234",
+    SEPAY_API_KEY: getEnvVar("SEPAY_API_KEY", false),
+    PAYOS_CLIENT_ID: getEnvVar("PAYOS_CLIENT_ID", false),
+    PAYOS_API_KEY: getEnvVar("PAYOS_API_KEY", false),
+    PAYOS_CHECKSUM_KEY: getEnvVar("PAYOS_CHECKSUM_KEY", false),
+    GEMINI_API_KEY: getEnvVar("GEMINI_API_KEY", true),
+};
