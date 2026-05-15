@@ -62,12 +62,11 @@ app.use('/api', routes);
 app.use(notFound);
 app.use(errorHandler);
 
-const port = env.PORT;
+const port = process.env.PORT || 80;
 
 if (process.env.NODE_ENV !== 'test' && require.main === module) {
-    const host = '0.0.0.0';
-    httpServer.listen(port as number, host, () => {
-        console.log(`🚀 Server is running on ${host}:${port}`);
+    httpServer.listen(port as number, "0.0.0.0", () => {
+        console.log(`🚀 Server is running on 0.0.0.0:${port}`);
         console.log(`💬 Initialized BuildForce Backend`);
     });
 }
