@@ -70,9 +70,8 @@ jobs:
       # 7. Tự động cập nhật Auto Scaling Group (Zero-Downtime Instance Refresh)
       # Bước này sẽ báo cho Auto Scaling Group biết để thực hiện Refresh các EC2 instance.
       # Các EC2 mới sẽ tự động kéo Docker Image mới nhất (tag latest) từ ECR về để chạy.
-      # Để bật chức năng này, vui lòng bỏ dấu comment (#) của các dòng lệnh dưới đây:
-      # - name: Trigger AWS ASG Instance Refresh
-      #   run: |
-      #     aws autoscaling start-instance-refresh \
-      #       --auto-scaling-group-name ${{ env.ASG_NAME }} \
-      #       --preferences '{"MinHealthyPercentage": 50}'
+      - name: Trigger AWS ASG Instance Refresh
+        run: |
+          aws autoscaling start-instance-refresh \
+            --auto-scaling-group-name ${{ env.ASG_NAME }} \
+            --preferences '{"MinHealthyPercentage": 50}'
