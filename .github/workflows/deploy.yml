@@ -8,8 +8,8 @@ on:
 
 env:
   AWS_REGION: ap-southeast-1                  # Thay đổi thành region của bạn (ví dụ: ap-southeast-1, us-east-1...)
-  ECR_REPOSITORY: w6-prod-backend-repo       # Tên ECR Repository của bạn đã tạo trên AWS
-  ASG_NAME: w6-prod-asg                      # Tên Auto Scaling Group của bạn (dùng để trigger refresh EC2)
+  ECR_REPOSITORY: buildforce-be              # Tên ECR Repository được phép theo chính sách SCP của AWS
+  ASG_NAME: W6-prod-ASG                      # Tên Auto Scaling Group khớp chính xác với CloudFormation (EnvironmentName-ASG)
 
 jobs:
   deploy:
