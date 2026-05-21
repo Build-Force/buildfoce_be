@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import mongoose from 'mongoose';
 import { env } from './env';
 
@@ -16,22 +18,30 @@ export const connectDatabase = async (): Promise<void> => {
       return;
     }
 
+    const isLocal = mongoUri.includes('localhost') || mongoUri.includes('127.0.0.1');
+    const localCAFile = path.join(process.cwd(), 'global-bundle.pem');
+    const tlsCAFile = fs.existsSync(localCAFile) ? localCAFile : '/opt/buildforce/global-bundle.pem';
+    const isSecondary = mongoUri.includes('secondary');
+
     const mongooseOptions: mongoose.ConnectOptions = {
-      autoIndex: process.env.NODE_ENV !== 'production',
+      autoIndex: isSecondary ? false : process.env.NODE_ENV !== 'production',
+      autoCreate: isSecondary ? false : undefined,
 
       // tăng timeout
       serverSelectionTimeoutMS: 30000,
       socketTimeoutMS: 30000,
       connectTimeoutMS: 30000,
 
-      // DocumentDB TLS
-      tls: true,
-      tlsCAFile: '/opt/buildforce/global-bundle.pem',
+      ...(isLocal ? {} : {
+        // DocumentDB TLS
+        tls: true,
+        tlsCAFile,
 
-      // DocumentDB compatibility
-      retryWrites: false,
-      directConnection: false,
-      family: 4,
+        // DocumentDB compatibility
+        retryWrites: false,
+        directConnection: false,
+        family: 4,
+      })
     };
 
     await mongoose.connect(mongoUri, mongooseOptions);

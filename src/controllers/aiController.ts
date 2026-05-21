@@ -1,27 +1,7 @@
 import { Response } from 'express';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { AuthRequest } from '../middlewares/auth';
 import { AIChat } from '../models/AIChat';
 import { env } from '../config/env';
-
-const getGenAI = () => {
-    const key = env.GEMINI_API_KEY?.trim();
-    if (!key) throw new Error('GEMINI_API_KEY is not configured');
-    return new GoogleGenerativeAI(key);
-};
-
-const SYSTEM_PROMPT = `Bạn là BuildForce AI Assistant — trợ lý thông minh của nền tảng BuildForce, chuyên kết nối nhân lực ngành xây dựng.
-
-Nhiệm vụ của bạn:
-- Hỗ trợ người lao động (thợ xây, thợ điện, thợ sơn, kỹ sư...) tìm việc phù hợp
-- Hỗ trợ nhà tuyển dụng (HR) tìm ứng viên, đăng tin tuyển dụng
-- Trả lời câu hỏi về ngành xây dựng, kỹ năng, mức lương, an toàn lao động
-- Hướng dẫn sử dụng nền tảng BuildForce
-
-Quy tắc:
-- Trả lời bằng tiếng Việt, thân thiện, chuyên nghiệp
-- Trả lời ngắn gọn, dễ hiểu
-- Nếu không biết, hãy nói rõ và gợi ý người dùng liên hệ hỗ trợ`;
 
 export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
@@ -58,28 +38,53 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             createdAt: new Date(),
         });
 
-        const genAI = getGenAI();
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        const apiGatewayUrl = env.AWS_RAG_API_URL || 'https://rud5xb87cg.execute-api.us-west-2.amazonaws.com/default/W6-agent-retrieve';
 
-        const chatHistory = aiChat.messages.map((msg) => ({
-            role: msg.role === 'assistant' ? 'model' as const : 'user' as const,
-            parts: [{ text: msg.content }],
-        }));
-
-        const chat = model.startChat({
-            history: [
-                { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-                { role: 'model', parts: [{ text: 'Tôi hiểu. Tôi là BuildForce AI Assistant, sẵn sàng hỗ trợ bạn!' }] },
-                ...chatHistory.slice(0, -1),
-            ],
+        const response = await fetch(apiGatewayUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                query: message.trim(),
+            }),
         });
 
-        const result = await chat.sendMessage(message.trim());
-        const aiResponse = result.response.text();
+        if (!response.ok) {
+            throw new Error(`AWS API Gateway returned HTTP ${response.status}`);
+        }
+
+        const responseData = (await response.json()) as { answer?: string; sources?: any[] };
+        const aiResponse = responseData.answer || 'Không có câu trả lời nào từ hệ thống tri thức.';
+        const rawSources = responseData.sources || [];
+
+        // Map sources to avoid duplicate objects
+        const mappedSources: any[] = [];
+        rawSources.forEach((src: any) => {
+            const sourceText = typeof src === 'string'
+                ? src
+                : (src.snippet || src.text || src.content?.text || src.location?.s3Location?.uri || '');
+            
+            const s3Uri = typeof src === 'string'
+                ? null
+                : (src.location?.s3Location?.uri || null);
+
+            const isDuplicate = mappedSources.some(
+                s => (s3Uri && s.location?.s3Location?.uri === s3Uri) || s.text === sourceText
+            );
+
+            if (!isDuplicate && sourceText) {
+                mappedSources.push({
+                    text: sourceText,
+                    location: s3Uri ? { s3Location: { uri: s3Uri } } : undefined,
+                });
+            }
+        });
 
         aiChat.messages.push({
             role: 'assistant',
             content: aiResponse,
+            sources: mappedSources.length > 0 ? mappedSources : undefined,
             createdAt: new Date(),
         });
 
@@ -91,36 +96,39 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
                 chatId: aiChat._id,
                 title: aiChat.title,
                 response: aiResponse,
+                sources: mappedSources,
             },
         });
     } catch (error: any) {
-        console.error('AI Chat error:', error);
+        console.error('AWS Bedrock Chat error:', error);
 
-        if (!env.GEMINI_API_KEY?.trim()) {
+        if (!env.AWS_ACCESS_KEY_ID?.trim() || !env.AWS_SECRET_ACCESS_KEY?.trim()) {
             res.status(503).json({
                 success: false,
-                message: 'Tính năng AI chưa được cấu hình (thiếu GEMINI_API_KEY).',
+                message: 'Tính năng AI chưa được cấu hình (thiếu thông tin xác thực AWS).',
             });
             return;
         }
-        if (error?.status === 429 || error?.message?.includes('429')) {
-            res.status(429).json({
+
+        if (error?.name === 'AccessDeniedException' || error?.message?.includes('AccessDenied')) {
+            res.status(403).json({
                 success: false,
-                message: 'AI đang quá tải, vui lòng thử lại sau ít phút.',
+                message: 'Không có quyền truy cập AWS Bedrock. Vui lòng kiểm tra quyền hạn của IAM User.',
             });
             return;
         }
-        if (error?.status === 401 || error?.message?.toLowerCase().includes('api key')) {
-            res.status(503).json({
+
+        if (error?.name === 'ResourceNotFoundException' || error?.message?.includes('ResourceNotFound')) {
+            res.status(404).json({
                 success: false,
-                message: 'Cấu hình API AI không hợp lệ. Vui lòng kiểm tra GEMINI_API_KEY.',
+                message: 'Không tìm thấy cụm Knowledge Base hoặc Model chỉ định trên AWS.',
             });
             return;
         }
 
         res.status(500).json({
             success: false,
-            message: error?.message || 'Không thể xử lý tin nhắn AI. Vui lòng thử lại.',
+            message: error?.message || 'Không thể xử lý tin nhắn RAG Bedrock. Vui lòng thử lại.',
         });
     }
 };
@@ -196,4 +204,3 @@ export const deleteChat = async (req: AuthRequest, res: Response): Promise<void>
         res.status(500).json({ success: false, message: 'Failed to delete chat.' });
     }
 };
-

@@ -30,6 +30,12 @@ interface EnvConfig {
     PAYOS_API_KEY: string;
     PAYOS_CHECKSUM_KEY: string;
     GEMINI_API_KEY: string;
+    AWS_ACCESS_KEY_ID: string;
+    AWS_SECRET_ACCESS_KEY: string;
+    AWS_REGION: string;
+    AWS_KNOWLEDGE_BASE_ID: string;
+    AWS_BEDROCK_MODEL_ARN: string;
+    AWS_RAG_API_URL: string;
 }
 
 const getEnvVar = (key: string, required: boolean = true): string => {
@@ -62,9 +68,9 @@ export const env: EnvConfig = {
                           "FRONTEND_URL must be set to your production domain (e.g. https://yourdomain.com) when NODE_ENV=production. Do not use localhost."
                       );
                   }
-                  return url;
+                  return url.replace(/\/+$/, "");
               })()
-            : (getEnvVar("FRONTEND_URL", false) || "http://localhost:3000"),
+            : (getEnvVar("FRONTEND_URL", false) || "http://localhost:3000").replace(/\/+$/, ""),
     API_URL:
         nodeEnv === "production"
             ? (() => {
@@ -74,9 +80,9 @@ export const env: EnvConfig = {
                           "API_URL must be set to your backend production URL (e.g. https://your-api.onrender.com) when NODE_ENV=production. Do not use localhost."
                       );
                   }
-                  return url;
+                  return url.replace(/\/+$/, "");
               })()
-            : (getEnvVar("API_URL", false) || "http://localhost:5000"),
+            : (getEnvVar("API_URL", false) || "http://localhost:5000").replace(/\/+$/, ""),
     GOOGLE_CLIENT_ID: getEnvVar("GOOGLE_CLIENT_ID", false),
     GOOGLE_CLIENT_SECRET: getEnvVar("GOOGLE_CLIENT_SECRET", false),
     SEPAY_BANK: getEnvVar("SEPAY_BANK", false) || "MBBank",
@@ -86,4 +92,10 @@ export const env: EnvConfig = {
     PAYOS_API_KEY: getEnvVar("PAYOS_API_KEY", false),
     PAYOS_CHECKSUM_KEY: getEnvVar("PAYOS_CHECKSUM_KEY", false),
     GEMINI_API_KEY: getEnvVar("GEMINI_API_KEY", true),
+    AWS_ACCESS_KEY_ID: getEnvVar("AWS_ACCESS_KEY_ID", false),
+    AWS_SECRET_ACCESS_KEY: getEnvVar("AWS_SECRET_ACCESS_KEY", false),
+    AWS_REGION: getEnvVar("AWS_REGION", false) || "us-west-2",
+    AWS_KNOWLEDGE_BASE_ID: getEnvVar("AWS_KNOWLEDGE_BASE_ID", false),
+    AWS_BEDROCK_MODEL_ARN: getEnvVar("AWS_BEDROCK_MODEL_ARN", false),
+    AWS_RAG_API_URL: getEnvVar("AWS_RAG_API_URL", false) || "https://rud5xb87cg.execute-api.us-west-2.amazonaws.com/default/W6-agent-retrieve",
 };

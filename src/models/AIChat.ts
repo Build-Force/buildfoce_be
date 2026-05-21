@@ -3,6 +3,7 @@ import mongoose, { Document, Schema, Types } from 'mongoose';
 export interface IAIChatMessage {
     role: 'user' | 'assistant';
     content: string;
+    sources?: any[];
     createdAt: Date;
 }
 
@@ -10,6 +11,7 @@ export interface IAIChat extends Document {
     userId: Types.ObjectId;
     messages: IAIChatMessage[];
     title: string;
+    bedrockSessionId?: string;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -23,6 +25,10 @@ const aiChatMessageSchema = new Schema<IAIChatMessage>({
     content: {
         type: String,
         required: true,
+    },
+    sources: {
+        type: [Schema.Types.Mixed],
+        default: undefined,
     },
     createdAt: {
         type: Date,
@@ -41,6 +47,10 @@ const aiChatSchema = new Schema<IAIChat>({
     title: {
         type: String,
         default: 'Cuộc trò chuyện mới',
+    },
+    bedrockSessionId: {
+        type: String,
+        required: false,
     },
 }, {
     timestamps: true,
