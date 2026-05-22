@@ -38,6 +38,14 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             createdAt: new Date(),
         });
 
+        // Lưu MongoDB chatId trước khi gọi Lambda để có session_id ổn định
+        // Với chat mới chưa có _id, cần save() trước để Mongoose tạo ObjectId
+        if (!chatId) {
+            await aiChat.save();
+        }
+
+        const sessionId = aiChat._id.toString();
+
         const apiGatewayUrl = env.AWS_RAG_API_URL || 'https://rud5xb87cg.execute-api.us-west-2.amazonaws.com/default/W6-agent-retrieve';
 
         const response = await fetch(apiGatewayUrl, {
@@ -47,6 +55,7 @@ export const sendAIMessage = async (req: AuthRequest, res: Response): Promise<vo
             },
             body: JSON.stringify({
                 query: message.trim(),
+                session_id: sessionId, // Truyền session_id để Lambda ghi/đọc DynamoDB đúng sơ đồ
             }),
         });
 
